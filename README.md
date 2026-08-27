@@ -79,26 +79,18 @@ For example, an AI client can:
 
 ### Permission model
 
-Each connector profile has its own local secret and can be configured with:
+Each connection can have its own secret, read/read-write permission, and allowed domains. Sensitive domains such as journal, money and health are gated separately.
 
-- **Read-only** or **read + write** access;
-- domain-level allowlists;
-- opt-in access for sensitive domains;
-- secret rotation and revocation;
-- local audit logs.
+MCP traffic stays on the loopback interface (`127.0.0.1`). The WASL browser/PWA instance must be running because the connector works with the active local IndexedDB workspace.
 
-The bridge runs on the loopback interface (`127.0.0.1`). Your browser/PWA instance must be running for the local connector to reach its IndexedDB data.
-
-Detailed setup: **[MCP setup guide](docs/guides/mcp-setup.md)**.
+Detailed configuration examples are in the [MCP setup guide](docs/guides/mcp-setup.md).
 
 ## Quick start
 
 ### Requirements
 
-- Node.js 20+
-- npm 10+
-
-### Run WASL
+- **Node.js 20+**
+- **npm 10+**
 
 ```bash
 git clone https://github.com/chikhaoui-amine/wasl.git
@@ -109,7 +101,7 @@ npm run dev
 
 Open **http://localhost:3000**.
 
-That is it. No `.env`, account, database setup or API key is required.
+That's it. WASL Local requires no `.env`, Supabase project, account, remote database or API key.
 
 ### Production build
 
@@ -124,66 +116,62 @@ npm run start
 npm run build:mcp
 ```
 
-Then open **Settings → AI connections** inside WASL and create a connector profile for your client.
+Then open **Settings → AI connections** inside WASL and create a connector profile for the AI client you want to use.
 
 ## Your data stays yours
 
-WASL Local stores workspace data in your browser's **IndexedDB** database through Dexie.
-
-- no analytics;
-- no telemetry;
-- no remote account;
-- no Supabase or Cloud credentials;
-- no required outbound application-data requests during normal local use;
-- MCP traffic stays on local loopback.
-
-### Backups matter
-
-Local-first does not mean indestructible. Browser data is tied to the browser profile and origin you use. Clearing site data, resetting the browser profile, or changing how you host WASL can make that local database unavailable.
-
-Use **Settings → Backup & transfer** to export `.wasl-backup` files regularly.
-
-WASL also supports selective `.wasl-transfer` packages when you want to move only specific domains or entities.
-
-Read **[Backup & recovery](docs/guides/backup-recovery.md)** before clearing or moving local data.
-
-## How it is built
+WASL Local is deliberately built without a required hosted backend.
 
 ```text
 AI client
-   │
-   │ MCP / STDIO
-   ▼
+    │
+    │ STDIO / MCP
+    ▼
 wasl-mcp-local
-   │
-   │ authenticated loopback WebSocket
-   ▼
-WASL browser / PWA
-   │
-   ▼
-LocalMcpExecutor
-   │
-   ▼
-LocalAdapter → Dexie → IndexedDB
+    │
+    │ authenticated 127.0.0.1 WebSocket
+    ▼
+WASL in your browser / PWA
+    │
+    ▼
+IndexedDB (Dexie)
 ```
 
-The UI talks to domain hooks through a local data adapter. Persisted stores are schema-versioned, validated and migration-aware, while backup/transfer formats provide a separate portability layer.
+- **No accounts** for Local.
+- **No telemetry or analytics.**
+- **No remote database dependency.**
+- **No Cloud credentials required.**
+- Personal workspace data is persisted in the browser's IndexedDB database.
+- MCP access is authenticated and permission-controlled per connection.
 
-### Stack
+Read the [security model](docs/security/security-model.md) for the detailed trust boundaries.
 
-**Next.js 16** · **React 19** · **TypeScript** · **Tailwind CSS v4** · **TanStack Query** · **Dexie / IndexedDB** · **Zod** · **Model Context Protocol SDK**
+### One important trade-off
 
-## Project structure
+Local ownership means **you are responsible for your local data**.
+
+Browser storage belongs to a particular browser profile and origin. Clearing site data, changing browser/profile, or moving WASL incorrectly can make that database unavailable.
+
+Use **Settings → Backup & transfer** regularly:
+
+- `.wasl-backup` — complete validated backup;
+- `.wasl-transfer` — selective domain/entity transfer and merge.
+
+Read the [backup & recovery guide](docs/guides/backup-recovery.md) before clearing or moving browser data.
+
+## Tech
+
+`Next.js 16` · `React 19` · `TypeScript` · `Tailwind CSS v4` · `Dexie / IndexedDB` · `TanStack Query` · `MCP SDK` · `Vitest`
 
 ```text
 app/                       Next.js routes
-components/                UI and feature components
-lib/data/                  local data layer, domains, validation, migrations
-lib/relay/                 local MCP bridge, permissions, presets, audit
+components/                product UI and feature components
+lib/data/                  local persistence, domains, migrations, validation
+lib/relay/                 local MCP execution, permissions, audit, presets
 packages/wasl-mcp-local/   STDIO MCP connector
-public/                    PWA assets, icons, service worker
+public/                    PWA assets and service worker
 docs/                      architecture, setup and security docs
-tests/                     unit, integration and end-to-end verification
+tests/                     unit, integration and E2E verification
 ```
 
 ## Verification
@@ -196,29 +184,28 @@ npm run build:mcp
 npm run build
 ```
 
-CI runs the same core verification on pushes and pull requests.
+The repository also includes E2E coverage for the local MCP bridge, HTTPS loopback boundary and PWA behavior.
 
 ## Documentation
 
-- [Data architecture](docs/architecture/data-architecture.md)
-- [Local MCP architecture](docs/architecture/local-live-mcp.md)
 - [MCP setup](docs/guides/mcp-setup.md)
+- [Local MCP architecture](docs/architecture/local-live-mcp.md)
+- [Data architecture](docs/architecture/data-architecture.md)
 - [Backup & recovery](docs/guides/backup-recovery.md)
 - [Security model](docs/security/security-model.md)
 - [Design system](docs/architecture/design-system.md)
-- [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Contributing
 
-Bug reports and focused improvements are welcome. Read **[CONTRIBUTING.md](CONTRIBUTING.md)** before opening a pull request.
+Bug reports, fixes and thoughtful improvements are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Changes touching persistence, migrations, backups or MCP should also follow the invariants in **[AGENTS.md](AGENTS.md)**.
+If you touch persistence, migrations, backups or MCP behavior, also read [AGENTS.md](AGENTS.md) — those parts have stricter invariants because mistakes can affect user data or connector permissions.
 
 ## License
 
 WASL is **source-available for personal, educational and other non-commercial use** under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
-Commercial use, commercial hosting, resale or integration into a paid commercial product requires separate permission from the maintainer.
+Commercial use or commercial hosting requires separate permission from the maintainer.
 
 The WASL name, logo and official brand assets are governed separately by [TRADEMARKS.md](TRADEMARKS.md).
