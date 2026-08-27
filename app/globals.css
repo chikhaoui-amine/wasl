@@ -1,0 +1,709 @@
+@import "tailwindcss";
+
+/* ============================================================
+   WASL — design tokens · "Depth & Glass"
+   Themes via [data-theme] on <html>:
+   graphite = Ink & Chalk · editorial = Porcelain · porcelain-dark = Porcelain Dark · espresso-dark = Espresso · espresso-light = Espresso Light
+   Separation comes from depth (shadow/surface/blur), not 1px lines.
+   ============================================================ */
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-backdrop: var(--backdrop);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-glass: var(--glass);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
+  --color-logo: var(--logo-color);
+  --color-rail-logo: var(--rail-logo-color);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-pastel-cream: var(--pastel-cream);
+  --color-pastel-mint: var(--pastel-mint);
+  --color-pastel-lav: var(--pastel-lav);
+  --color-pastel-ink: var(--pastel-ink);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-onest);
+  --font-mono: var(--font-jetbrains);
+
+  --radius-card: var(--radius);
+  --radius-pill: 999px;
+
+  --shadow-card: var(--sh-card);
+  --shadow-float: var(--sh-float);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+/* ---------- THEME: graphite → "Ink & Chalk" ----------
+   Pure dark-grey-and-white monochrome: near-black canvas, chalk-white
+   ink and accents, zero hue anywhere except the functional status
+   colors. Rail is a bright chalk cutout against the ink body; the
+   active item inverts to a solid ink chip for a crisp, deliberate mark. */
+:root,
+[data-theme="graphite"] {
+  --backdrop: oklch(9% 0 0);
+  --backdrop-texture: radial-gradient(
+    1100px 700px at 72% -12%,
+    oklch(100% 0 0 / 0.05),
+    transparent 60%
+  );
+  --bg: oklch(18% 0 0);
+  --surface: oklch(23% 0 0 / 0.9);
+  --surface-2: oklch(27% 0 0);
+  --surface-hover: oklch(31% 0 0);
+  --glass: oklch(27% 0 0 / 0.62);
+  --glass-border: oklch(100% 0 0 / 0.09);
+  --text: oklch(96% 0 0);
+  --muted: oklch(72% 0 0);
+  --faint: oklch(54% 0 0);
+  --border: oklch(100% 0 0 / 0.08);
+  --border-strong: oklch(100% 0 0 / 0.16);
+  --accent: oklch(93% 0 0);
+  --accent-fg: oklch(14% 0 0);
+  --accent-soft: oklch(100% 0 0 / 0.1);
+  --accent-2: oklch(68% 0 0);
+  --logo-color: oklch(93% 0 0);
+  --rail-logo-color: #000000;
+  --ring: oklch(93% 0 0 / 0.45);
+  --success: oklch(75% 0.15 150);
+  --warn: oklch(82% 0.14 80);
+  --danger: oklch(66% 0.19 25);
+  --hero-grad: linear-gradient(135deg, oklch(95% 0 0), oklch(74% 0 0));
+  --hero-fg: oklch(14% 0 0);
+  --glow-accent: 0 0 34px oklch(100% 0 0 / 0.22);
+  --pastel-cream: var(--surface-2);
+  --pastel-mint: var(--surface-2);
+  --pastel-lav: var(--surface-2);
+  --pastel-ink: var(--text);
+  --ambient: oklch(100% 0 0 / 0.05);
+  --ambient-2: oklch(100% 0 0 / 0.035);
+  --grain-opacity: 0.1;
+  --grain-blend: screen;
+  --sh-card:
+    inset 0 1px 0 oklch(100% 0 0 / 0.045), 0 14px 34px -14px rgb(0 0 0 / 0.65);
+  --sh-float: 0 24px 84px -24px rgb(0 0 0 / 0.7);
+  --blur-glass: 18px;
+  --rail-bg: oklch(97.5% 0 0);
+  --rail-border: oklch(0% 0 0 / 0.1);
+  --rail-text: oklch(16% 0 0);
+  --rail-muted: oklch(40% 0 0);
+  --rail-faint: oklch(58% 0 0);
+  --rail-hover: oklch(0% 0 0 / 0.05);
+  --rail-active-bg: oklch(18% 0 0);
+  --rail-active-fg: oklch(97% 0 0);
+  --font-display: var(--font-space-grotesk);
+  --radius: 0.75rem;
+  color-scheme: dark;
+}
+
+/* ---------- THEME: editorial → "Porcelain" ----------
+   Airy light SaaS. White cards float on cool porcelain;
+   kelly emerald accent, near-black used as a contrast material. */
+[data-theme="editorial"] {
+  --backdrop: oklch(94% 0.008 240);
+  --backdrop-texture: repeating-linear-gradient(
+    45deg,
+    oklch(25% 0.02 250 / 0.026) 0 1px,
+    transparent 1px 9px
+  );
+  --bg: oklch(97.5% 0.004 240);
+  --surface: oklch(99.4% 0.002 240);
+  --surface-2: oklch(95.5% 0.006 240);
+  --surface-hover: oklch(93.5% 0.008 240);
+  --glass: oklch(99% 0.002 240 / 0.72);
+  --glass-border: oklch(25% 0.02 250 / 0.08);
+  --text: oklch(22% 0.015 250);
+  --muted: oklch(45% 0.015 250);
+  --faint: oklch(62% 0.012 250);
+  --border: oklch(25% 0.02 250 / 0.07);
+  --border-strong: oklch(25% 0.02 250 / 0.14);
+  --accent: oklch(52% 0.13 160);
+  --accent-fg: oklch(99% 0.005 160);
+  --accent-soft: oklch(52% 0.13 160 / 0.1);
+  --accent-2: oklch(30% 0.02 250);
+  --logo-color: #2C8A60;
+  --rail-logo-color: #2C8A60;
+  --ring: oklch(52% 0.13 160 / 0.5);
+  --success: oklch(55% 0.12 158);
+  --warn: oklch(60% 0.13 70);
+  --danger: oklch(54% 0.16 26);
+  --hero-grad: linear-gradient(135deg, oklch(48% 0.13 162), oklch(35% 0.1 175));
+  --hero-fg: oklch(98% 0.008 160);
+  --glow-accent: 0 12px 32px oklch(52% 0.13 160 / 0.28);
+  --pastel-cream: oklch(95% 0.03 90);
+  --pastel-mint: oklch(94% 0.04 160);
+  --pastel-lav: oklch(93% 0.035 295);
+  --pastel-ink: oklch(25% 0.02 250);
+  --ambient: oklch(70% 0.06 160 / 0.1);
+  --ambient-2: oklch(75% 0.05 240 / 0.09);
+  --grain-opacity: 0.35;
+  --sh-card: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -8px rgb(0 0 0 / 0.1);
+  --sh-float: 0 24px 80px -24px rgb(0 0 0 / 0.25);
+  --blur-glass: 24px;
+  --rail-bg: oklch(24% 0.02 250);
+  --rail-border: oklch(100% 0 0 / 0.08);
+  --rail-text: oklch(97% 0.005 250);
+  --rail-muted: oklch(78% 0.01 250);
+  --rail-faint: oklch(58% 0.012 250);
+  --rail-hover: oklch(100% 0 0 / 0.08);
+  --rail-active-bg: oklch(52% 0.13 160 / 0.3);
+  --rail-active-fg: oklch(87% 0.09 162);
+  --font-display: var(--font-fraunces);
+  --radius: 1.25rem;
+  color-scheme: light;
+}
+
+/* ---------- THEME: porcelain-dark → "Porcelain Dark" (Deep Forest) ----------
+   Deep forest premium dark theme preserving Porcelain's green identity:
+   near-black blue/green background (#0F1517), elevated surfaces (#171E20),
+   soft off-white sidebar cutout (#F2EFEA), soft off-white text (#F1F3F0),
+   secondary text (#909A96), subtle borders (#283230),
+   and signature forest green (#1C8259) with mint-tinted highlights. */
+[data-theme="porcelain-dark"] {
+  --backdrop: #090E10;
+  --backdrop-texture: radial-gradient(
+    1100px 700px at 75% -10%,
+    rgba(28, 130, 89, 0.08),
+    transparent 65%
+  );
+  --bg: #0F1517;
+  --surface: #171E20;
+  --surface-2: #1E272A;
+  --surface-hover: #253135;
+  --glass: rgba(23, 30, 32, 0.75);
+  --glass-border: rgba(241, 243, 240, 0.08);
+  --text: #F1F3F0;
+  --muted: #909A96;
+  --faint: #5F6B66;
+  --border: #283230;
+  --border-strong: #3B4A47;
+  --accent: #1C8259;
+  --accent-fg: #E6FBF0;
+  --accent-soft: rgba(28, 130, 89, 0.18);
+  --accent-2: #34D399;
+  --logo-color: #2C8A60;
+  --rail-logo-color: #2C8A60;
+  --ring: rgba(28, 130, 89, 0.5);
+  --success: oklch(74% 0.15 150);
+  --warn: oklch(80% 0.13 75);
+  --danger: oklch(65% 0.18 25);
+  --hero-grad: linear-gradient(135deg, #1C8259, #125C3E);
+  --hero-fg: #E6FBF0;
+  --glow-accent: 0 10px 32px rgba(28, 130, 89, 0.28);
+  --pastel-cream: var(--surface-2);
+  --pastel-mint: var(--surface-2);
+  --pastel-lav: var(--surface-2);
+  --pastel-ink: var(--text);
+  --ambient: rgba(28, 130, 89, 0.07);
+  --ambient-2: rgba(15, 21, 23, 0.5);
+  --grain-opacity: 0.1;
+  --sh-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 14px 36px -12px rgba(0, 0, 0, 0.7);
+  --sh-float: 0 28px 84px -22px rgba(0, 0, 0, 0.8);
+  --blur-glass: 20px;
+  --rail-bg: #F2EFEA;
+  --rail-border: rgba(0, 0, 0, 0.08);
+  --rail-text: #0F1517;
+  --rail-muted: #54625E;
+  --rail-faint: #7E8D88;
+  --rail-hover: rgba(0, 0, 0, 0.05);
+  --rail-active-bg: #0F1517;
+  --rail-active-fg: #F1F3F0;
+  --font-display: var(--font-fraunces);
+  --radius: 1.25rem;
+  color-scheme: dark;
+}
+
+/* ---------- THEME: espresso-dark → "Espresso" (Dark) ----------
+   Warm premium dark theme built around near-charcoal brown neutrals (#211C18),
+   elevated surfaces (#302822), soft off-white sidebar cutout (#F3EEE6),
+   warm white primary text (#F2EEE9), clear secondary text (#AFA69D),
+   and vibrant orange (#ED8748) accent for active states & highlights. */
+[data-theme="espresso-dark"] {
+  --backdrop: #171310;
+  --backdrop-texture: radial-gradient(
+    1100px 700px at 75% -10%,
+    rgba(237, 135, 72, 0.06),
+    transparent 65%
+  );
+  --bg: #211C18;
+  --surface: #302822;
+  --surface-2: #3B322B;
+  --surface-hover: #463C34;
+  --glass: rgba(48, 40, 34, 0.72);
+  --glass-border: rgba(243, 238, 230, 0.08);
+  --text: #F2EEE9;
+  --muted: #AFA69D;
+  --faint: #7A7168;
+  --border: rgba(242, 238, 233, 0.07);
+  --border-strong: rgba(242, 238, 233, 0.14);
+  --accent: #ED8748;
+  --accent-fg: #1B1209;
+  --accent-soft: rgba(237, 135, 72, 0.14);
+  --accent-2: #F3EEE6;
+  --logo-color: #ED8748;
+  --rail-logo-color: #29221E;
+  --ring: rgba(237, 135, 72, 0.5);
+  --success: oklch(74% 0.14 148);
+  --warn: oklch(80% 0.13 75);
+  --danger: oklch(65% 0.18 25);
+  --hero-grad: linear-gradient(135deg, #ED8748, #D0692D);
+  --hero-fg: #181109;
+  --glow-accent: 0 8px 32px rgba(237, 135, 72, 0.22);
+  --pastel-cream: var(--surface-2);
+  --pastel-mint: var(--surface-2);
+  --pastel-lav: var(--surface-2);
+  --pastel-ink: var(--text);
+  --ambient: rgba(237, 135, 72, 0.06);
+  --ambient-2: rgba(243, 238, 230, 0.025);
+  --grain-opacity: 0;
+  --sh-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 14px 36px -12px rgba(0, 0, 0, 0.6);
+  --sh-float: 0 28px 84px -22px rgba(0, 0, 0, 0.72);
+  --blur-glass: 20px;
+  --rail-bg: #F3EEE6;
+  --rail-border: rgba(0, 0, 0, 0.08);
+  --rail-text: #211C18;
+  --rail-muted: #685E54;
+  --rail-faint: #988E83;
+  --rail-hover: rgba(0, 0, 0, 0.05);
+  --rail-active-bg: #211C18;
+  --rail-active-fg: #F3EEE6;
+  --font-display: var(--font-space-grotesk);
+  --radius: 0.95rem;
+  color-scheme: dark;
+}
+
+/* ---------- THEME: espresso-light → "Espresso Light" (Light) ----------
+   Warm premium light theme built around soft off-white background (#F5F1EB),
+   clean elevated surfaces (#FFFCF8), deeper warm sidebar (#EEE7DE),
+   dark warm primary text (#2A231E), secondary text (#746B63),
+   subtle borders (#DDD5CC), and signature orange (#ED8748) accents. */
+[data-theme="espresso-light"] {
+  --backdrop: #EAE3D9;
+  --backdrop-texture: radial-gradient(
+    1100px 700px at 75% -10%,
+    rgba(237, 135, 72, 0.05),
+    transparent 65%
+  );
+  --bg: #F5F1EB;
+  --surface: #FFFCF8;
+  --surface-2: #EFE8DE;
+  --surface-hover: #E7DFD4;
+  --glass: rgba(255, 252, 248, 0.82);
+  --glass-border: rgba(221, 213, 204, 0.7);
+  --text: #2A231E;
+  --muted: #746B63;
+  --faint: #9E948B;
+  --border: #DDD5CC;
+  --border-strong: #C8BEB2;
+  --accent: #ED8748;
+  --accent-fg: #1C130B;
+  --accent-soft: rgba(237, 135, 72, 0.14);
+  --accent-2: #2A231E;
+  --logo-color: #ED8748;
+  --rail-logo-color: #ED8748;
+  --ring: rgba(237, 135, 72, 0.45);
+  --success: oklch(55% 0.13 155);
+  --warn: oklch(60% 0.14 70);
+  --danger: oklch(55% 0.17 25);
+  --hero-grad: linear-gradient(135deg, #ED8748, #D87032);
+  --hero-fg: #1C130B;
+  --glow-accent: 0 8px 30px rgba(237, 135, 72, 0.22);
+  --pastel-cream: #FAF5ED;
+  --pastel-mint: #EEF5F0;
+  --pastel-lav: #F5F0F7;
+  --pastel-ink: #2A231E;
+  --ambient: rgba(237, 135, 72, 0.05);
+  --ambient-2: rgba(238, 231, 222, 0.5);
+  --grain-opacity: 0.15;
+  --sh-card:
+    0 1px 3px rgba(42, 35, 30, 0.04),
+    0 8px 24px -6px rgba(42, 35, 30, 0.07);
+  --sh-float: 0 24px 70px -20px rgba(42, 35, 30, 0.14);
+  --blur-glass: 20px;
+  --rail-bg: #2A231E;
+  --rail-border: rgba(255, 255, 255, 0.08);
+  --rail-text: #F5F1EB;
+  --rail-muted: #BDB4AA;
+  --rail-faint: #8A8075;
+  --rail-hover: rgba(255, 255, 255, 0.08);
+  --rail-active-bg: rgba(237, 135, 72, 0.2);
+  --rail-active-fg: #ED8748;
+  --font-display: var(--font-space-grotesk);
+  --radius: 0.95rem;
+  color-scheme: light;
+}
+
+/* ---------- base ---------- */
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--backdrop);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.tabular {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- app frame: floating canvas on a themed backdrop ---------- */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--backdrop);
+  background-image: var(--backdrop-texture);
+  transition: background-color 0.6s var(--ease-out);
+}
+
+.app-canvas {
+  background: var(--bg);
+}
+@media (min-width: 80rem) {
+  .app-canvas {
+    border-radius: 18px;
+    box-shadow: var(--sh-float);
+  }
+}
+
+/* ambient glow inside the canvas (signature) */
+.app-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(900px 520px at 12% -6%, var(--ambient), transparent 65%),
+    radial-gradient(760px 460px at 100% 8%, var(--ambient-2), transparent 62%);
+  transition: background 0.6s var(--ease-out);
+}
+
+/* film grain (light themes) */
+.app-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend, multiply);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+/* ---------- sidebar rail (theme-remapped palette) ---------- */
+.rail {
+  background: var(--rail-bg);
+  color: var(--rail-text);
+  border-color: var(--rail-border);
+  /* rail is its own light/dark "world" — its focus ring must key off
+     rail-text, not the page accent, or it can vanish against the cutout. */
+  --ring: color-mix(in oklab, var(--rail-text) 50%, transparent);
+}
+.rail-label {
+  color: var(--rail-faint);
+}
+.rail-item {
+  color: var(--rail-muted);
+  transition:
+    background 0.18s var(--ease-out),
+    color 0.18s var(--ease-out);
+}
+.rail-item:hover {
+  background: var(--rail-hover);
+  color: var(--rail-text);
+}
+.rail-item[data-active="true"] {
+  background: var(--rail-active-bg);
+  color: var(--rail-active-fg);
+}
+
+/* ---------- topbar glass ---------- */
+.topbar-glass {
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+/* ---------- cards: depth over borders ---------- */
+.card {
+  /* longhand on purpose: lets bg-[linear-gradient(…)] utilities layer a wash on top */
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-card);
+}
+
+.card-hover {
+  transition:
+    background 0.22s var(--ease-out),
+    border-color 0.22s var(--ease-out),
+    box-shadow 0.22s var(--ease-out),
+    transform 0.22s var(--ease-out);
+}
+.card-hover:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+
+/* ONE gradient hero card per page. Remaps ink tokens for children. */
+.card-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--hero-grad);
+  border: 1px solid oklch(100% 0 0 / 0.14);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-card), var(--glow-accent);
+  --text: var(--hero-fg);
+  --muted: color-mix(in oklab, var(--hero-fg) 76%, transparent);
+  --faint: color-mix(in oklab, var(--hero-fg) 55%, transparent);
+  --border: color-mix(in oklab, var(--hero-fg) 14%, transparent);
+  --border-strong: color-mix(in oklab, var(--hero-fg) 26%, transparent);
+  --surface-2: color-mix(in oklab, var(--hero-fg) 12%, transparent);
+  --surface-hover: color-mix(in oklab, var(--hero-fg) 18%, transparent);
+  --accent: var(--hero-fg);
+  --accent-soft: color-mix(in oklab, var(--hero-fg) 14%, transparent);
+  color: var(--text);
+}
+.card-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 90% at 85% -10%,
+    oklch(100% 0 0 / 0.13),
+    transparent 55%
+  );
+}
+
+/* landing page entrance — fade-up, staggered via inline animation-delay */
+.landing-rise {
+  opacity: 0;
+  animation: landing-rise 0.7s var(--ease-out) forwards;
+}
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* frosted glass card / overlay surface */
+.card-glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-card);
+}
+
+/* pastel feature cards (Porcelain + Desert Luxe; alias to surface on Graphite) */
+.card-pastel-cream,
+.card-pastel-mint,
+.card-pastel-lav {
+  border: 1px solid oklch(0% 0 0 / 0.05);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-card);
+  --text: var(--pastel-ink);
+  --muted: color-mix(in oklab, var(--pastel-ink) 72%, transparent);
+  --faint: color-mix(in oklab, var(--pastel-ink) 54%, transparent);
+  --border: color-mix(in oklab, var(--pastel-ink) 10%, transparent);
+  --surface-2: color-mix(in oklab, var(--pastel-ink) 8%, transparent);
+  --surface-hover: color-mix(in oklab, var(--pastel-ink) 12%, transparent);
+  color: var(--text);
+}
+.card-pastel-cream {
+  background: var(--pastel-cream);
+}
+.card-pastel-mint {
+  background: var(--pastel-mint);
+}
+.card-pastel-lav {
+  background: var(--pastel-lav);
+}
+
+/* hero-gradient action (Capture, primary submit) */
+.btn-hero {
+  background: var(--hero-grad);
+  color: var(--hero-fg);
+  box-shadow: var(--glow-accent);
+  transition:
+    transform 0.18s var(--ease-out),
+    filter 0.18s var(--ease-out);
+}
+.btn-hero:hover {
+  transform: scale(1.02);
+  filter: brightness(1.06);
+}
+.btn-hero:active {
+  transform: scale(0.97);
+}
+
+/* value bubble above chart bars (dark pill, all themes) */
+.chart-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, -7px);
+  z-index: 5;
+  background: oklch(21% 0.012 260);
+  color: oklch(97% 0.005 260);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+  transition: opacity 0.15s var(--ease-out);
+}
+.chart-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: oklch(21% 0.012 260);
+}
+
+/* 45° hatched fill (secondary chart series) — colored via currentColor */
+.hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    currentColor 0 3px,
+    transparent 3px 7px
+  );
+}
+
+/* accent glow row (just-completed task) */
+.row-glow {
+  background: var(--accent-soft);
+  box-shadow: 0 0 22px -8px var(--accent);
+}
+
+/* focus ring */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---------- motion ---------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+main > * {
+  animation: rise 0.45s var(--ease-out) backwards;
+}
+main > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+main > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+main > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 2s var(--ease-out) infinite;
+}
+
+
+
+
+/* ---------- scrollbar ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
+  background-clip: content-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
