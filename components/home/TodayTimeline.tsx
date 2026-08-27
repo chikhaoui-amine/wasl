@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { useBlocksData, type Block } from "@/lib/data/domains/blocks";
 import { BlockForm } from "@/components/forms/BlockForm";
 import { todayISO } from "@/lib/date";
+import { cn } from "@/lib/utils";
 
 const HOUR_H = 46;
 
@@ -66,6 +67,9 @@ export function TodayTimeline() {
           {/* blocks */}
           {todayBlocks.map((b) => {
             const h = (b.end - b.start) * HOUR_H;
+            const isShort = h < 36;
+            const isAccent = b.color === "var(--accent)";
+
             return (
               <button
                 key={b.id}
@@ -73,19 +77,37 @@ export function TodayTimeline() {
                   e.stopPropagation();
                   setEditing(b);
                 }}
-                className="absolute inset-x-0 z-20 overflow-hidden rounded-[10px] px-2 py-1 text-left transition-transform hover:scale-[1.01]"
+                className={cn(
+                  "absolute inset-x-0 z-20 overflow-hidden rounded-[8px] text-left transition-transform shadow-sm hover:scale-[1.01] hover:shadow-md",
+                  isShort ? "flex items-center px-2 py-0" : "flex flex-col justify-start px-2.5 py-1.5",
+                  isAccent ? "text-accent-fg" : "text-white",
+                )}
                 style={{
                   top: y(b.start) + 1,
-                  height: Math.max(h - 2, 16),
-                  background: `linear-gradient(90deg, color-mix(in oklab, ${b.color} 26%, var(--surface)), color-mix(in oklab, ${b.color} 10%, var(--surface)))`,
-                  borderLeft: `3px solid ${b.color}`,
-                  boxShadow: `inset 3px 0 8px -4px ${b.color}`,
+                  height: Math.max(h - 2, 18),
+                  backgroundColor: b.color,
+                  border: isAccent ? "1px solid var(--border)" : "1px solid rgba(0, 0, 0, 0.15)",
                 }}
               >
-                <span className="tabular block text-[8px] leading-none text-faint">
-                  {fmtTime(b.start)}–{fmtTime(b.end)}
-                </span>
-                <span className="line-clamp-1 text-[11px] font-medium text-text">{b.title}</span>
+                {isShort ? (
+                  <div className="flex w-full min-w-0 items-center gap-1.5 leading-none">
+                    <span className={cn("tabular text-[8.5px] font-medium shrink-0", isAccent ? "text-accent-fg/80" : "text-white/80")}>
+                      {fmtTime(b.start)}
+                    </span>
+                    <span className={cn("truncate text-[10.5px] font-semibold", isAccent ? "text-accent-fg" : "text-white")}>
+                      {b.title}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <span className={cn("tabular block text-[8.5px] leading-tight", isAccent ? "text-accent-fg/80" : "text-white/80")}>
+                      {fmtTime(b.start)}–{fmtTime(b.end)}
+                    </span>
+                    <span className={cn("line-clamp-1 text-[11px] font-semibold mt-0.5", isAccent ? "text-accent-fg" : "text-white")}>
+                      {b.title}
+                    </span>
+                  </>
+                )}
               </button>
             );
           })}

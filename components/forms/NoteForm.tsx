@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Modal, Field, FormFooter, Segmented, inputCls } from "@/components/ui/Modal";
 import {
   useNotesData,
   CoalescingSaveQueue,
@@ -10,8 +9,10 @@ import {
   type NoteContentType,
   type SaveStatus,
 } from "@/lib/data/domains/notes";
-import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
+import { MarkdownRenderer, isRtlText } from "@/components/ui/MarkdownRenderer";
+import { AttachedPhotosBar } from "@/components/notes/AttachedPhotosBar";
 import {
+  ArrowLeft,
   BookOpen,
   Headphones,
   Lightbulb,
@@ -29,15 +30,24 @@ import {
   Quote,
   Code,
   Eye,
-  Edit3,
   Check,
   Loader2,
   AlertCircle,
   Image as ImageIcon,
+  Trash2,
+  User,
+  FileCode,
 } from "lucide-react";
 import { CategoryForm } from "./CategoryForm";
 import { ImageInsertModal } from "./ImageInsertModal";
-import { compressImage, formatImageMarkdown } from "@/lib/images";
+import {
+  compressImage,
+  formatImageReference,
+  parseNoteMarkdown,
+  composeNoteMarkdown,
+  type ImageAlignment,
+  type ImageSize,
+} from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 const CONTENT_TYPES: { value: NoteContentType; label: string; icon: typeof StickyNote }[] = [
@@ -84,13 +94,14 @@ export function NoteForm({
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [imageReferences, setImageReferences] = useState<Record<string, string>>({});
   const [tag, setTag] = useState("");
   const [contentType, setContentType] = useState<NoteContentType>("note");
   const [sourceUrl, setSourceUrl] = useState("");
   const [author, setAuthor] = useState("");
   const [creatingCat, setCreatingCat] = useState(false);
   const [insertImageModalOpen, setInsertImageModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"write" | "preview">("write");
+  const [activeTab, setActiveTab] = useState<"source" | "preview">("source");
 
   // Auto-save state tracking: 'saved' | 'saving' | 'failed'
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
@@ -107,7 +118,7 @@ export function NoteForm({
   const initialType: NoteContentType = "note";
 
   // Debounce timing: ~250ms for local, ~800ms for cloud
-  const debounceDelayMs = 250;
+  const debounceDelayMs = (edition as string) === "cloud" ? 800 : 250;
 
   // Initialize Coalescing Save Queue once via useState
   const [saveQueue] = useState(() => new CoalescingSaveQueue<NotePayload>());
@@ -180,7 +191,11 @@ export function NoteForm({
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form state on session change
       setActiveNoteId(note.id);
       setTitle(note.title);
-      setBody(note.body);
+
+      const parsed = parseNoteMarkdown(note.body);
+      setBody(parsed.cleanBody);
+      setImageReferences(parsed.references);
+
       setTag(note.tag);
       setContentType(note.contentType || "note");
       setSourceUrl(note.sourceUrl || "");
@@ -199,26 +214,30 @@ export function NoteForm({
       setActiveNoteId(null);
       setTitle("");
       setBody("");
+      setImageReferences({});
       setTag(defaultCategoryName);
       setContentType(initialType);
       setSourceUrl("");
       setAuthor("");
       lastSavedPayloadRef.current = "";
     }
-    setActiveTab("write");
+    setActiveTab("source");
     setSaveStatus("saved");
     isInitialRenderRef.current = true;
   }, [editorSessionKey, note, defaultCategoryName, initialType]);
+
+  const getFullComposedBody = () => composeNoteMarkdown(body, imageReferences);
 
   const flushSave = async () => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
+    const fullBody = getFullComposedBody();
     const payload: NotePayload = {
       activeId: activeNoteIdRef.current,
       title,
-      body,
+      body: fullBody,
       tag: tag || defaultCategoryName,
       contentType,
       sourceUrl,
@@ -233,6 +252,48 @@ export function NoteForm({
     await saveQueue.flush();
   };
 
+  const handleClose = async () => {
+    try {
+      await flushSave();
+    } catch {
+      // Best-effort flush on close
+    }
+    onClose();
+  };
+
+  const handleRetry = async () => {
+    try {
+      await saveQueue.retry();
+    } catch (err) {
+      console.error("Retry failed:", err);
+    }
+  };
+
+  const handleDelete = async () => {
+    const targetId = activeNoteIdRef.current || activeNoteId;
+    if (!targetId) {
+      onClose();
+      return;
+    }
+    try {
+      await deleteNote(targetId);
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete note:", err);
+    }
+  };
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && open && !creatingCat && !insertImageModalOpen) {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   // Debounced auto-save on change
   useEffect(() => {
     if (!open) return;
@@ -242,10 +303,11 @@ export function NoteForm({
       return;
     }
 
+    const fullBody = composeNoteMarkdown(body, imageReferences);
     const payload: NotePayload = {
       activeId: activeNoteIdRef.current,
       title,
-      body,
+      body: fullBody,
       tag: tag || defaultCategoryName,
       contentType,
       sourceUrl,
@@ -275,9 +337,9 @@ export function NoteForm({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [title, body, tag, contentType, sourceUrl, author, defaultCategoryName, debounceDelayMs, open, saveQueue]);
+  }, [title, body, imageReferences, tag, contentType, sourceUrl, author, defaultCategoryName, debounceDelayMs, open, saveQueue]);
 
-  // Register with global pending save coordinator for safe PWA updates / lifecycle
+  // Register with global pending save coordinator for safe lifecycle
   useEffect(() => {
     if (!open) return;
     const unregister = registerPendingSaveHandler({
@@ -309,22 +371,7 @@ export function NoteForm({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   });
 
-  const handleClose = async () => {
-    try {
-      await flushSave();
-    } catch {
-      // Best-effort flush on close
-    }
-    onClose();
-  };
-
-  const handleRetry = async () => {
-    try {
-      await saveQueue.retry();
-    } catch (err) {
-      console.error("Retry failed:", err);
-    }
-  };
+  if (!open) return null;
 
   const insertSnippetAtCursor = (snippet: string) => {
     const textarea = textareaRef.current;
@@ -345,6 +392,28 @@ export function NoteForm({
     });
   };
 
+  const getNextImageKey = () => {
+    let maxId = 0;
+    for (const key of Object.keys(imageReferences)) {
+      const match = key.match(/^img-(\d+)$/);
+      if (match) {
+        const id = parseInt(match[1], 10);
+        if (id > maxId) maxId = id;
+      }
+    }
+    return `img-${maxId + 1}`;
+  };
+
+  const handleInsertImageReference = (
+    dataUri: string,
+    options: { caption?: string; align?: ImageAlignment | string; size?: ImageSize | string } = {},
+  ) => {
+    const refKey = getNextImageKey();
+    setImageReferences((prev) => ({ ...prev, [refKey]: dataUri }));
+    const snippet = formatImageReference(refKey, options);
+    insertSnippetAtCursor(`\n\n${snippet}\n\n`);
+  };
+
   const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -357,8 +426,7 @@ export function NoteForm({
           e.preventDefault();
           try {
             const compressed = await compressImage(file);
-            const snippet = formatImageMarkdown(compressed, { align: "center", size: "full" });
-            insertSnippetAtCursor(`\n\n${snippet}\n\n`);
+            handleInsertImageReference(compressed, { align: "center", size: "full" });
           } catch (err) {
             console.error("Failed to paste image:", err);
           }
@@ -378,8 +446,7 @@ export function NoteForm({
         e.preventDefault();
         try {
           const compressed = await compressImage(file);
-          const snippet = formatImageMarkdown(compressed, { align: "center", size: "full" });
-          insertSnippetAtCursor(`\n\n${snippet}\n\n`);
+          handleInsertImageReference(compressed, { align: "center", size: "full" });
         } catch (err) {
           console.error("Failed to drop image:", err);
         }
@@ -409,60 +476,54 @@ export function NoteForm({
     });
   };
 
-  const modalTitleNode = (
-    <div className="flex items-center justify-between gap-3 pr-6">
-      <span>{note || activeNoteId ? "Edit Note" : "New Note"}</span>
-      <div className="flex items-center gap-1.5 text-xs font-normal">
-        {saveStatus === "saving" ? (
-          <span className="inline-flex items-center gap-1 text-accent font-medium animate-pulse">
-            <Loader2 className="h-3 w-3 animate-spin" /> Saving...
-          </span>
-        ) : saveStatus === "failed" ? (
-          <button
-            type="button"
-            onClick={handleRetry}
-            className="inline-flex items-center gap-1 text-rose-400 font-medium hover:underline cursor-pointer"
-            title="Save failed. Click to retry."
-          >
-            <AlertCircle className="h-3.5 w-3.5" /> Save failed · Retry
-          </button>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-success font-medium">
-            <Check className="h-3.5 w-3.5" /> Saved
-          </span>
-        )}
-      </div>
-    </div>
-  );
+  const handleRemoveImageRef = (refKey: string) => {
+    setImageReferences((prev) => {
+      const next = { ...prev };
+      delete next[refKey];
+      return next;
+    });
+    // Remove any reference tags from body
+    const regex = new RegExp(`!\\[[^\\]]*\\]\\[${refKey}\\]\\n?`, "g");
+    setBody((prev) => prev.replace(regex, ""));
+  };
+
+  const activeCategory = categories.find((c) => c.name.toLowerCase() === (tag || defaultCategoryName).toLowerCase());
+  const activeCategoryColor = activeCategory?.color || "var(--accent)";
+
+  const words = body ? body.trim().split(/\s+/).filter(Boolean).length : 0;
+  const readTimeMin = Math.max(1, Math.ceil(words / 200));
 
   return (
     <>
-      <Modal open={open} onClose={handleClose} title={modalTitleNode as unknown as string} wide>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleClose();
-          }}
-          className="space-y-4"
-        >
-          <Field label="Title">
-            <input
-              autoFocus
-              dir="auto"
-              className={`${inputCls} font-display text-base font-semibold`}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={flushSave}
-              placeholder="Title of note, article, or podcast episode..."
-            />
-          </Field>
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/95 backdrop-blur-xl animate-in fade-in duration-200">
+        {/* Sticky Top Control Header */}
+        <div className="sticky top-0 z-20 border-b border-border/60 bg-bg/85 backdrop-blur-md px-4 py-2.5 sm:px-8">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 flex-wrap">
+            {/* Left: Back & Category & Type */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-surface-2 hover:border-accent"
+              >
+                <ArrowLeft className="h-4 w-4 text-accent" />
+                <span className="hidden sm:inline">Back to Notes</span>
+              </button>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Page / Category">
-              <div className="flex items-center gap-2">
+              {/* Category Pill Dropdown */}
+              <div
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+                style={{
+                  background: `color-mix(in oklab, ${activeCategoryColor} 16%, transparent)`,
+                  color: activeCategoryColor,
+                }}
+              >
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ background: activeCategoryColor }}
+                />
                 <select
-                  className={`${inputCls} cursor-pointer`}
-                  value={tag}
+                  value={tag || defaultCategoryName}
                   onChange={(e) => {
                     if (e.target.value === "__NEW__") {
                       setCreatingCat(true);
@@ -471,242 +532,322 @@ export function NoteForm({
                     }
                   }}
                   onBlur={flushSave}
+                  className="bg-transparent font-semibold outline-none cursor-pointer border-none text-xs"
+                  style={{ color: activeCategoryColor }}
                 >
                   {categories.map((c) => (
-                    <option key={c.id} value={c.name}>
+                    <option key={c.id} value={c.name} className="bg-surface-1 text-text">
                       {c.name}
                     </option>
                   ))}
-                  <option value="__NEW__">+ New custom page...</option>
+                  <option value="__NEW__" className="bg-surface-1 text-text">+ New Page...</option>
                 </select>
               </div>
-            </Field>
 
-            <Field label="Type">
-              <Segmented
-                value={contentType}
-                onChange={(val) => {
-                  setContentType(val);
-                  setTimeout(flushSave, 0);
-                }}
-                options={CONTENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-              />
-            </Field>
-          </div>
-
-          {(contentType === "read" || contentType === "listen") && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Source Link (URL)">
-                <div className="relative">
-                  <Link2 className="absolute left-3 top-2.5 h-4 w-4 text-faint" />
-                  <input
-                    className={`${inputCls} pl-9`}
-                    value={sourceUrl}
-                    onChange={(e) => setSourceUrl(e.target.value)}
-                    onBlur={flushSave}
-                    placeholder="https://article.com or podcast link"
-                  />
-                </div>
-              </Field>
-              <Field label="Author / Host / Channel">
-                <input
-                  className={inputCls}
-                  value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
-                  onBlur={flushSave}
-                  placeholder="e.g. Paul Graham, Lex Fridman..."
-                />
-              </Field>
+              {/* Content Type Segmented Switcher */}
+              <div className="flex items-center rounded-full bg-surface-2 p-0.5 text-xs">
+                {CONTENT_TYPES.map((t) => {
+                  const Icon = t.icon;
+                  const isSelected = contentType === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => {
+                        setContentType(t.value);
+                        setTimeout(flushSave, 0);
+                      }}
+                      className={cn(
+                        "flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all",
+                        isSelected ? "bg-surface-1 text-accent shadow-xs" : "text-faint hover:text-muted",
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      <span className="hidden md:inline">{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
 
-          {/* Content Field with Formatting Toolbar & Write/Preview Tabs */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted">
-                Content / Markdown Insights
-              </label>
+            {/* Right: Word count, Auto-save badge, View switcher, Delete, Done */}
+            <div className="flex items-center gap-2">
+              <span className="hidden lg:inline-block text-xs font-medium text-faint mr-1">
+                {words} words · {readTimeMin} min read
+              </span>
 
-              {/* Write vs Preview Toggle */}
+              {/* Save Status Badge */}
+              <div className="flex items-center gap-1 text-xs mr-1">
+                {saveStatus === "saving" ? (
+                  <span className="inline-flex items-center gap-1 text-accent font-medium animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                  </span>
+                ) : saveStatus === "failed" ? (
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    className="inline-flex items-center gap-1 text-rose-400 font-medium hover:underline cursor-pointer"
+                    title="Save failed. Click to retry."
+                  >
+                    <AlertCircle className="h-3.5 w-3.5" /> Retry
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-success font-medium">
+                    <Check className="h-3.5 w-3.5" /> Saved
+                  </span>
+                )}
+              </div>
+
+              {/* View Mode Toggle: Source (Write) | Read (Preview) */}
               <div className="flex items-center rounded-lg bg-surface-2 p-0.5 text-xs font-medium">
                 <button
                   type="button"
-                  onClick={() => setActiveTab("write")}
+                  onClick={() => setActiveTab("source")}
+                  title="Source Markdown Editor"
                   className={cn(
-                    "flex items-center gap-1 rounded-md px-2.5 py-1 transition-all",
-                    activeTab === "write" ? "bg-surface-1 text-accent shadow-sm" : "text-faint hover:text-muted",
+                    "flex items-center gap-1 rounded-md px-3 py-1 transition-all",
+                    activeTab === "source" ? "bg-surface-1 text-accent shadow-xs" : "text-faint hover:text-muted",
                   )}
                 >
-                  <Edit3 className="h-3 w-3" />
-                  <span>Write</span>
+                  <FileCode className="h-3.5 w-3.5" />
+                  <span>Source</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("preview")}
+                  title="Read / Rendered Preview Mode"
                   className={cn(
-                    "flex items-center gap-1 rounded-md px-2.5 py-1 transition-all",
-                    activeTab === "preview" ? "bg-surface-1 text-accent shadow-sm" : "text-faint hover:text-muted",
+                    "flex items-center gap-1 rounded-md px-3 py-1 transition-all",
+                    activeTab === "preview" ? "bg-surface-1 text-accent shadow-xs" : "text-faint hover:text-muted",
                   )}
                 >
-                  <Eye className="h-3 w-3" />
-                  <span>Preview</span>
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>Read</span>
                 </button>
               </div>
+
+              {/* Delete action */}
+              {(activeNoteId || note) && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  title="Delete note"
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-surface-1 text-faint transition-colors hover:bg-danger/10 hover:text-danger hover:border-danger/30"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* Done button */}
+              <button
+                type="button"
+                onClick={handleClose}
+                className="btn-hero flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-semibold shadow-sm"
+              >
+                <Check className="h-3.5 w-3.5" />
+                <span>Done</span>
+              </button>
             </div>
+          </div>
 
-            {activeTab === "write" ? (
-              <div className="space-y-2">
-                {/* Formatting Toolbar */}
-                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-surface-2/60 p-1.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("# ", "")}
-                    title="Heading 1 (#)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md font-bold text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Heading1 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("## ", "")}
-                    title="Heading 2 (##)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md font-semibold text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Heading2 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("### ", "")}
-                    title="Heading 3 (###)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Heading3 className="h-3.5 w-3.5" />
-                  </button>
+          {/* Quick Formatting Toolbar in Top Header */}
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-1 overflow-x-auto pt-2 pb-0.5 scrollbar-none text-xs">
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => applyFormatting("# ", "")}
+                title="Heading 1 (#)"
+                className="flex h-7 w-7 items-center justify-center rounded-md font-bold text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Heading1 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("## ", "")}
+                title="Heading 2 (##)"
+                className="flex h-7 w-7 items-center justify-center rounded-md font-semibold text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Heading2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("### ", "")}
+                title="Heading 3 (###)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Heading3 className="h-3.5 w-3.5" />
+              </button>
 
-                  <div className="h-4 w-px bg-border/80 mx-0.5" />
+              <div className="h-3.5 w-px bg-border/80 mx-1" />
 
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("**", "**")}
-                    title="Bold (**text**)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Bold className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("*", "*")}
-                    title="Italic (*text*)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Italic className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("<u>", "</u>")}
-                    title="Underline (<u>text</u>)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Underline className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("~~", "~~")}
-                    title="Strikethrough (~~text~~)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Strikethrough className="h-3.5 w-3.5" />
-                  </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("**", "**")}
+                title="Bold (**text**)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Bold className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("*", "*")}
+                title="Italic (*text*)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Italic className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("<u>", "</u>")}
+                title="Underline (<u>text</u>)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Underline className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("~~", "~~")}
+                title="Strikethrough (~~text~~)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Strikethrough className="h-3.5 w-3.5" />
+              </button>
 
-                  <div className="h-4 w-px bg-border/80 mx-0.5" />
+              <div className="h-3.5 w-px bg-border/80 mx-1" />
 
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("- ", "")}
-                    title="Bulleted List (- item)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <List className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("- [ ] ", "")}
-                    title="Task List (- [ ] item)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <CheckSquare className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("> ", "")}
-                    title="Blockquote (> quote)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Quote className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyFormatting("```\n", "\n```")}
-                    title="Code Block (``` code ```)"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
-                  >
-                    <Code className="h-3.5 w-3.5" />
-                  </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("- ", "")}
+                title="Bulleted List (- item)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("- [ ] ", "")}
+                title="Task List (- [ ] item)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("> ", "")}
+                title="Blockquote (> quote)"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Quote className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyFormatting("```\n", "\n```")}
+                title="Code Block"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text"
+              >
+                <Code className="h-3.5 w-3.5" />
+              </button>
 
-                  <div className="h-4 w-px bg-border/80 mx-0.5" />
+              <div className="h-3.5 w-px bg-border/80 mx-1" />
 
-                  <button
-                    type="button"
-                    onClick={() => setInsertImageModalOpen(true)}
-                    title="Insert Photo / Image"
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-accent transition-colors"
-                  >
-                    <ImageIcon className="h-3.5 w-3.5" />
-                  </button>
+              <button
+                type="button"
+                onClick={() => setInsertImageModalOpen(true)}
+                title="Insert Photo / Image"
+                className="flex items-center gap-1 px-2 h-7 rounded-md text-muted hover:bg-surface-hover hover:text-accent font-medium transition-colors"
+              >
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span className="text-[11px]">Photo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Full-Page Document Canvas */}
+        <main className="mx-auto max-w-3xl px-5 sm:px-8 py-8 sm:py-12 space-y-6">
+          {/* Large Document Title Input */}
+          <header className="space-y-4 border-b border-border/60 pb-6">
+            <input
+              autoFocus={!title}
+              dir={isRtlText(title) ? "rtl" : "ltr"}
+              className={cn(
+                "w-full font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-text leading-tight bg-transparent border-none outline-none placeholder:text-faint/40",
+                isRtlText(title) ? "text-right" : "text-left",
+              )}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={flushSave}
+              placeholder="Title of note, article, or podcast..."
+            />
+
+            {/* Subfields for Author & Source Link */}
+            {(contentType === "read" || contentType === "listen" || author || sourceUrl) && (
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-3 py-1 flex-1 min-w-[180px]">
+                  <User className="h-3.5 w-3.5 text-accent shrink-0" />
+                  <input
+                    value={author}
+                    onChange={(e) => setAuthor(e.target.value)}
+                    onBlur={flushSave}
+                    placeholder="Author / Host / Channel"
+                    className="w-full bg-transparent text-xs text-text outline-none placeholder:text-faint"
+                  />
                 </div>
 
+                <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-3 py-1 flex-1 min-w-[220px]">
+                  <Link2 className="h-3.5 w-3.5 text-accent shrink-0" />
+                  <input
+                    value={sourceUrl}
+                    onChange={(e) => setSourceUrl(e.target.value)}
+                    onBlur={flushSave}
+                    placeholder="Source link (URL)"
+                    className="w-full bg-transparent text-xs text-text outline-none placeholder:text-faint"
+                  />
+                </div>
+              </div>
+            )}
+          </header>
+
+          {/* Document Body Area */}
+          <article className="min-h-[400px] space-y-6">
+            {activeTab === "source" ? (
+              <>
                 <textarea
                   ref={textareaRef}
                   dir="auto"
-                  rows={9}
-                  className={`${inputCls} resize-y font-mono text-xs sm:text-sm leading-relaxed text-left rtl:text-right`}
+                  rows={16}
+                  className="w-full rounded-2xl border border-border/80 bg-surface-1 p-5 font-mono text-sm leading-relaxed text-text outline-none focus:border-accent resize-y min-h-[400px] shadow-inner"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   onPaste={handlePaste}
                   onDrop={handleDrop}
                   onBlur={flushSave}
-                  placeholder="Write thoughts, markdown (# headers, **bold**, - lists) or summaries freely..."
+                  placeholder="Write thoughts, markdown (# headers, **bold**, - lists, ![Photo | left | medium][img-1]) freely..."
                 />
-              </div>
+
+                {/* Clean Attached Photos Manager */}
+                <AttachedPhotosBar
+                  references={imageReferences}
+                  body={body}
+                  onInsertRef={(refKey, snippet) => insertSnippetAtCursor(`\n\n${snippet}\n\n`)}
+                  onRemoveRef={handleRemoveImageRef}
+                  onAddPhotoClick={() => setInsertImageModalOpen(true)}
+                />
+              </>
             ) : (
-              <div className="min-h-[200px] max-h-[40vh] overflow-y-auto rounded-xl border border-border/80 bg-surface-1 p-4">
-                {body ? (
-                  <MarkdownRenderer content={body} />
+              <div className="min-h-[400px] py-2">
+                {body || Object.keys(imageReferences).length > 0 ? (
+                  <MarkdownRenderer content={getFullComposedBody()} />
                 ) : (
-                  <p className="italic text-xs text-faint">Nothing written to preview yet.</p>
+                  <p className="italic text-base text-faint text-center py-12">
+                    Nothing written to preview yet.
+                  </p>
                 )}
               </div>
             )}
-          </div>
-
-          <FormFooter
-            submitLabel="Done"
-            disabled={false}
-            onDelete={
-              activeNoteId
-                ? async () => {
-                    try {
-                      await deleteNote(activeNoteId);
-                      onClose();
-                    } catch (err) {
-                      console.error("Failed to delete note:", err);
-                    }
-                  }
-                : undefined
-            }
-          />
-        </form>
-      </Modal>
+          </article>
+        </main>
+      </div>
 
       <CategoryForm
         open={creatingCat}
@@ -716,7 +857,9 @@ export function NoteForm({
       <ImageInsertModal
         open={insertImageModalOpen}
         onClose={() => setInsertImageModalOpen(false)}
-        onInsert={(md) => insertSnippetAtCursor(`\n\n${md}\n\n`)}
+        onInsert={(dataUri, opts) => {
+          handleInsertImageReference(dataUri, opts);
+        }}
       />
     </>
   );

@@ -10,31 +10,47 @@ export interface ParsedImageAlt {
 }
 
 export function parseImageMarkdown(alt: string = ""): ParsedImageAlt {
-  if (!alt || !alt.includes("|")) {
+  if (!alt || !alt.trim()) {
     return {
-      caption: alt?.trim() || "",
+      caption: "",
       align: "center",
       size: "full",
     };
   }
 
-  const parts = alt.split("|").map((p) => p.trim().toLowerCase());
-  const caption = alt.split("|")[0].trim();
+  const rawParts = alt.split("|").map((p) => p.trim()).filter(Boolean);
+  if (rawParts.length === 0) {
+    return {
+      caption: "",
+      align: "center",
+      size: "full",
+    };
+  }
 
   let align: ImageAlignment = "center";
   let size: ImageSize = "full";
+  const captionParts: string[] = [];
 
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[i];
-    if (part === "left" || part === "right" || part === "center" || part === "full") {
-      align = part as ImageAlignment;
-    }
-    if (part === "small" || part === "medium" || part === "full" || part === "large") {
-      size = (part === "large" ? "full" : part) as ImageSize;
+  for (const part of rawParts) {
+    const lower = part.toLowerCase();
+    if (lower === "left" || lower === "right" || lower === "center") {
+      align = lower as ImageAlignment;
+    } else if (lower === "small" || lower === "medium" || lower === "large") {
+      size = (lower === "large" ? "full" : lower) as ImageSize;
+    } else if (lower === "full") {
+      // "full" can denote either full alignment or full width
+      align = "full";
+      size = "full";
+    } else {
+      captionParts.push(part);
     }
   }
 
-  return { caption, align, size };
+  return {
+    caption: captionParts.join(" | ").trim(),
+    align,
+    size,
+  };
 }
 
 export function formatImageMarkdown(
@@ -50,10 +66,108 @@ export function formatImageMarkdown(
   return `![${altText}](${src})`;
 }
 
+export function formatImageReference(
+  refKey: string,
+  options: { caption?: string; align?: ImageAlignment | string; size?: ImageSize | string } = {},
+): string {
+  const caption = options.caption?.trim() || "";
+  const align = (options.align as ImageAlignment) || "center";
+  const size = (options.size as ImageSize) || "full";
+
+  const altParts = [caption, align, size].filter(Boolean);
+  const altText = altParts.join(" | ");
+  return `![${altText}][${refKey}]`;
+}
+
+export interface ParsedNoteMarkdown {
+  cleanBody: string;
+  references: Record<string, string>;
+  nextId: number;
+}
+
+/**
+ * Parses raw note markdown, extracting [ref]: url definitions and converting
+ * legacy inline base64 images into clean reference tags ![alt][img-N].
+ */
+export function parseNoteMarkdown(rawMarkdown: string = ""): ParsedNoteMarkdown {
+  if (!rawMarkdown) {
+    return { cleanBody: "", references: {}, nextId: 1 };
+  }
+
+  const references: Record<string, string> = {};
+  const lines = rawMarkdown.replace(/\r\n/g, "\n").split("\n");
+  const bodyLines: string[] = [];
+
+  // 1. Extract reference definitions [ref]: url from lines
+  for (const line of lines) {
+    const refMatch = line.match(/^\[([a-zA-Z0-9_-]+)\]:\s*(\S+)\s*$/);
+    if (refMatch) {
+      const refKey = refMatch[1];
+      const refUrl = refMatch[2];
+      references[refKey] = refUrl;
+    } else {
+      bodyLines.push(line);
+    }
+  }
+
+  let cleanBody = bodyLines.join("\n").trimEnd();
+
+  // Find the highest existing numeric ID in reference keys
+  let maxId = 0;
+  for (const key of Object.keys(references)) {
+    const numMatch = key.match(/^img-(\d+)$/);
+    if (numMatch) {
+      const id = parseInt(numMatch[1], 10);
+      if (id > maxId) maxId = id;
+    }
+  }
+
+  // 2. Convert any inline base64 images into reference tags
+  const inlineBase64Regex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g;
+  cleanBody = cleanBody.replace(inlineBase64Regex, (_match, alt, dataUri) => {
+    maxId += 1;
+    const refKey = `img-${maxId}`;
+    references[refKey] = dataUri;
+    return `![${alt}][${refKey}]`;
+  });
+
+  return {
+    cleanBody,
+    references,
+    nextId: maxId + 1,
+  };
+}
+
+/**
+ * Composes clean markdown body and reference definitions into standard GFM markdown.
+ */
+export function composeNoteMarkdown(cleanBody: string = "", references: Record<string, string> = {}): string {
+  const trimmedBody = (cleanBody || "").trimEnd();
+  const refKeys = Object.keys(references);
+
+  if (refKeys.length === 0) {
+    return trimmedBody;
+  }
+
+  const refLines = refKeys.map((key) => `[${key}]: ${references[key]}`);
+  return trimmedBody ? `${trimmedBody}\n\n${refLines.join("\n")}\n` : `${refLines.join("\n")}\n`;
+}
+
 export function extractFirstImageUrl(markdown: string = ""): string | null {
   if (!markdown) return null;
-  const match = markdown.match(/!\[[^\]]*\]\(([^)]+)\)/);
-  return match ? match[1] : null;
+  // Check direct inline image
+  const inlineMatch = markdown.match(/!\[[^\]]*\]\(([^)]+)\)/);
+  if (inlineMatch) return inlineMatch[1];
+
+  // Check reference-style image
+  const refMatch = markdown.match(/!\[[^\]]*\]\[([a-zA-Z0-9_-]+)\]/);
+  if (refMatch) {
+    const refKey = refMatch[1];
+    const defMatch = markdown.match(new RegExp(`^\\[${refKey}\\]:\\s*(\\S+)`, "m"));
+    if (defMatch) return defMatch[1];
+  }
+
+  return null;
 }
 
 export async function compressImage(

@@ -342,29 +342,49 @@ function DayColumn({
         const live = draft?.kind === "block" && draft.id === b.id ? draft.range : b;
         const h = (live.end - live.start) * HOUR_H;
         const dragging = draft?.kind === "block" && draft.id === b.id;
+        const isShort = h < 38;
+        const isAccent = b.color === "var(--accent)";
+
         return (
           <div
             key={b.id}
             onPointerDown={(e) => onBlockPointerDown(e, b)}
             className={cn(
-              "group absolute inset-x-1 z-10 cursor-grab overflow-hidden rounded-[10px] px-2 py-1 text-left transition-transform",
-              dragging ? "z-30 cursor-grabbing shadow-lg" : "hover:scale-[1.01]",
+              "group absolute inset-x-1 z-10 cursor-grab overflow-hidden rounded-[8px] text-left transition-transform shadow-sm",
+              dragging ? "z-30 cursor-grabbing shadow-xl ring-2 ring-white/50 scale-[1.02]" : "hover:scale-[1.01] hover:shadow-md",
+              isShort ? "flex items-center px-2 py-0" : "flex flex-col justify-start px-2.5 py-1.5",
+              isAccent ? "text-accent-fg" : "text-white",
             )}
             style={{
               top: y(live.start) + 1,
-              height: Math.max(h - 2, 18),
-              background: `linear-gradient(90deg, color-mix(in oklab, ${b.color} 26%, var(--surface)), color-mix(in oklab, ${b.color} 10%, var(--surface)))`,
-              borderLeft: `3px solid ${b.color}`,
-              boxShadow: dragging ? undefined : `inset 3px 0 8px -4px ${b.color}`,
+              height: Math.max(h - 2, 20),
+              backgroundColor: b.color,
+              border: isAccent ? "1px solid var(--border)" : "1px solid rgba(0, 0, 0, 0.15)",
             }}
           >
             {/* resize handles (visual cursor only; hit-test uses offsetY) */}
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-[7px] cursor-ns-resize" />
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[7px] cursor-ns-resize" />
-            <span className="tabular block text-[9px] text-faint">
-              {fmtTime(live.start)}–{fmtTime(live.end)}
-            </span>
-            <span className="line-clamp-2 text-[11px] font-medium leading-tight text-text">{b.title}</span>
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-[6px] cursor-ns-resize" />
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[6px] cursor-ns-resize" />
+
+            {isShort ? (
+              <div className="flex w-full min-w-0 items-center gap-1.5 leading-none">
+                <span className={cn("tabular text-[9px] font-medium shrink-0", isAccent ? "text-accent-fg/80" : "text-white/80")}>
+                  {fmtTime(live.start)}
+                </span>
+                <span className={cn("truncate text-[11px] font-semibold", isAccent ? "text-accent-fg" : "text-white")}>
+                  {b.title}
+                </span>
+              </div>
+            ) : (
+              <>
+                <span className={cn("tabular block text-[9px] font-medium leading-tight", isAccent ? "text-accent-fg/80" : "text-white/80")}>
+                  {fmtTime(live.start)}–{fmtTime(live.end)}
+                </span>
+                <span className={cn("line-clamp-2 text-[11.5px] font-semibold leading-tight mt-0.5", isAccent ? "text-accent-fg" : "text-white")}>
+                  {b.title}
+                </span>
+              </>
+            )}
           </div>
         );
       })}

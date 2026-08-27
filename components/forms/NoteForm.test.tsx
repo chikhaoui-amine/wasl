@@ -1,62 +1,12 @@
 // @vitest-environment jsdom
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import "fake-indexeddb/auto";
-import type { ReactNode } from "react";
 import React from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataProvider, createMemoryQueryClient } from "@/lib/data/query/provider";
 import type { DataAdapter } from "@/lib/data/types";
 import { type Note, type NoteCategory } from "@/lib/data/domains/notes";
-
-vi.mock("@/components/ui/Modal", () => ({
-  Modal: ({ open, title, children }: { open: boolean; title: ReactNode; children: ReactNode }) =>
-    open ? (
-      <div>
-        <h2>{title}</h2>
-        {children}
-      </div>
-    ) : null,
-  Field: ({ label, children }: { label: ReactNode; children: ReactNode }) => (
-    <label>
-      {label}
-      {children}
-    </label>
-  ),
-  FormFooter: ({ onDelete, submitLabel }: { onDelete?: () => void; submitLabel: string }) => (
-    <div>
-      {onDelete ? (
-        <button type="button" onClick={onDelete}>
-          Delete
-        </button>
-      ) : null}
-      <button type="submit">{submitLabel}</button>
-    </div>
-  ),
-  Segmented: ({
-    value,
-    onChange,
-    options,
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-    options: Array<{ value: string; label: string }>;
-  }) => (
-    <div>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  ),
-  inputCls: "",
-}));
 
 vi.mock("@/components/ui/MarkdownRenderer", () => ({
   MarkdownRenderer: ({ content }: { content: string }) => <div>{content}</div>,
@@ -127,6 +77,10 @@ describe("NoteForm sync rehydration & draft reliability", () => {
       </DataProvider>,
     );
 
+    // Switch to source mode to directly edit textarea or edit title
+    const sourceBtn = screen.getByTitle("Source Markdown Editor");
+    fireEvent.click(sourceBtn);
+
     const editor = screen.getByPlaceholderText(/Write thoughts/) as HTMLTextAreaElement;
     fireEvent.change(editor, { target: { value: "Unsynced draft" } });
     await act(async () => {
@@ -177,6 +131,10 @@ describe("NoteForm sync rehydration & draft reliability", () => {
       </DataProvider>,
     );
 
+    // Switch to source mode to test draft
+    const sourceBtn = screen.getByTitle("Source Markdown Editor");
+    fireEvent.click(sourceBtn);
+
     const editor = screen.getByPlaceholderText(/Write thoughts/) as HTMLTextAreaElement;
     fireEvent.change(editor, { target: { value: "New draft" } });
     await act(async () => {
@@ -193,5 +151,79 @@ describe("NoteForm sync rehydration & draft reliability", () => {
     }
 
     expect(mutateStore).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders full-page controls: title, category, type switcher, and close", async () => {
+    const mockAdapter: Partial<DataAdapter> = {
+      initialize: () => Promise.resolve(),
+      getStore: (() =>
+        Promise.resolve({
+          store: "lifeos-notes",
+          version: 3,
+          state: { notes: [staleNote], categories },
+          updatedAt: "2026-08-23",
+        })) as any,
+      mutateStore: vi.fn(),
+      getAllStores: () => Promise.resolve([]),
+      subscribe: () => () => {},
+    };
+
+    const handleClose = vi.fn();
+
+    render(
+      <DataProvider adapter={mockAdapter as DataAdapter} queryClient={queryClient} edition="local">
+        <NoteForm open onClose={handleClose} note={staleNote} />
+      </DataProvider>,
+    );
+
+    expect(screen.getByPlaceholderText(/Title of note/)).toBeDefined();
+    expect(screen.getByText("Back to Notes")).toBeDefined();
+    expect(screen.getByText("Done")).toBeDefined();
+
+    const backBtn = screen.getByText("Back to Notes");
+    await act(async () => {
+      fireEvent.click(backBtn);
+    });
+    expect(handleClose).toHaveBeenCalled();
+  });
+
+  it("extracts base64 images into references and keeps textarea clean in source mode", async () => {
+    const imageNote: Note = {
+      id: "note-img",
+      title: "Image note",
+      body: "# Title\n\n![My Photo | left | medium](data:image/webp;base64,largeBase64Content12345)\n\nEnd text.",
+      tag: "Personal",
+      pinned: false,
+      updatedAt: 1,
+      contentType: "note",
+    };
+
+    const mockAdapter: Partial<DataAdapter> = {
+      initialize: () => Promise.resolve(),
+      getStore: (() =>
+        Promise.resolve({
+          store: "lifeos-notes",
+          version: 3,
+          state: { notes: [imageNote], categories },
+          updatedAt: "2026-08-23",
+        })) as any,
+      mutateStore: vi.fn(),
+      getAllStores: () => Promise.resolve([]),
+      subscribe: () => () => {},
+    };
+
+    render(
+      <DataProvider adapter={mockAdapter as DataAdapter} queryClient={queryClient} edition="local">
+        <NoteForm open onClose={vi.fn()} note={imageNote} />
+      </DataProvider>,
+    );
+
+    const textarea = screen.getByPlaceholderText(/Write thoughts/) as HTMLTextAreaElement;
+    // Textarea MUST NOT contain the giant raw base64 string
+    expect(textarea.value).not.toContain("data:image/webp;base64,largeBase64Content12345");
+    // Textarea MUST contain the clean reference tag
+    expect(textarea.value).toContain("![My Photo | left | medium][img-1]");
+    // Attached photos bar should display the photo tag
+    expect(screen.getByText("[img-1]")).toBeDefined();
   });
 });

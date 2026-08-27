@@ -3,14 +3,17 @@
 
 import { useState, useRef } from "react";
 import { Modal, Field, FormFooter, inputCls, Segmented } from "@/components/ui/Modal";
-import { compressImage, formatImageMarkdown, type ImageAlignment, type ImageSize } from "@/lib/images";
+import { compressImage, type ImageAlignment, type ImageSize } from "@/lib/images";
 import { Upload, Link2, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ImageInsertModalProps {
   open: boolean;
   onClose: () => void;
-  onInsert: (markdownSnippet: string) => void;
+  onInsert: (
+    src: string,
+    options: { caption: string; align: ImageAlignment; size: ImageSize },
+  ) => void;
 }
 
 export function ImageInsertModal({ open, onClose, onInsert }: ImageInsertModalProps) {
@@ -56,12 +59,11 @@ export function ImageInsertModal({ open, onClose, onInsert }: ImageInsertModalPr
 
   const handleInsert = () => {
     if (!activeSrc) return;
-    const md = formatImageMarkdown(activeSrc, {
+    onInsert(activeSrc, {
       caption,
       align,
       size,
     });
-    onInsert(md);
     handleClose();
   };
 
@@ -167,7 +169,13 @@ export function ImageInsertModal({ open, onClose, onInsert }: ImageInsertModalPr
           <Field label="Placement / Alignment">
             <Segmented
               value={align}
-              onChange={(val) => setAlign(val as ImageAlignment)}
+              onChange={(val) => {
+                const newAlign = val as ImageAlignment;
+                setAlign(newAlign);
+                if ((newAlign === "left" || newAlign === "right") && size === "full") {
+                  setSize("medium");
+                }
+              }}
               options={[
                 { value: "center", label: "Center" },
                 { value: "left", label: "Left Float" },

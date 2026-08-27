@@ -58,28 +58,28 @@ function normalizeMarkdownContent(raw: string): string {
 function getImageContainerClasses(align: ImageAlignment, size: ImageSize, isRtl: boolean): string {
   const sizeClass =
     size === "small"
-      ? "max-w-[280px]"
+      ? "max-w-[260px] w-full"
       : size === "medium"
-        ? "max-w-[580px]"
+        ? "max-w-[460px] w-full"
         : "w-full";
 
   if (align === "left") {
     return cn(
-      "my-3 w-full sm:w-auto",
-      sizeClass,
+      "my-3",
+      size === "full" ? "w-full sm:max-w-[48%]" : sizeClass,
       isRtl
-        ? "float-none sm:float-right sm:ml-5 sm:mr-0 mb-4 clear-both sm:clear-none text-right"
-        : "float-none sm:float-left sm:mr-5 sm:ml-0 mb-4 clear-both sm:clear-none text-left",
+        ? "block sm:inline-block sm:float-right sm:ml-6 sm:mr-0 mb-4 clear-none text-right ml-auto mr-0"
+        : "block sm:inline-block sm:float-left sm:mr-6 sm:ml-0 mb-4 clear-none text-left mr-auto ml-0",
     );
   }
 
   if (align === "right") {
     return cn(
-      "my-3 w-full sm:w-auto",
-      sizeClass,
+      "my-3",
+      size === "full" ? "w-full sm:max-w-[48%]" : sizeClass,
       isRtl
-        ? "float-none sm:float-left sm:mr-5 sm:ml-0 mb-4 clear-both sm:clear-none text-left"
-        : "float-none sm:float-right sm:ml-5 sm:mr-0 mb-4 clear-both sm:clear-none text-right",
+        ? "block sm:inline-block sm:float-left sm:mr-6 sm:ml-0 mb-4 clear-none text-left mr-auto ml-0"
+        : "block sm:inline-block sm:float-right sm:ml-6 sm:mr-0 mb-4 clear-none text-right ml-auto mr-0",
     );
   }
 
@@ -89,6 +89,27 @@ function getImageContainerClasses(align: ImageAlignment, size: ImageSize, isRtl:
 
   // default center
   return cn("my-5 mx-auto block clear-both", sizeClass);
+}
+
+/**
+ * Safe URL transform for ReactMarkdown that permits data:image/ URIs alongside standard protocols.
+ */
+export function safeMarkdownUrlTransform(url: string): string {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith("data:image/") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("mailto:") ||
+    trimmed.startsWith("tel:")
+  ) {
+    return trimmed;
+  }
+  return "";
 }
 
 export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
@@ -118,38 +139,39 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
       <div
         dir={isRtl ? "rtl" : "ltr"}
         className={cn(
-          "prose-wasl prose-lifeos space-y-4 text-text leading-relaxed clear-both",
+          "prose-wasl prose-lifeos text-text leading-relaxed clear-both",
           isRtl ? "text-right" : "text-left",
           className,
         )}
       >
         <ReactMarkdown
+          urlTransform={safeMarkdownUrlTransform}
           remarkPlugins={[remarkGfm, remarkBreaks]}
           components={{
             h1: ({ children }) => (
-              <h1 className={cn("font-display text-2xl sm:text-3xl font-bold tracking-tight text-text mt-6 mb-3 border-b border-border/50 pb-2 clear-both", isRtl ? "text-right" : "text-left")}>
+              <h1 className={cn("font-display text-2xl sm:text-3xl font-bold tracking-tight text-text mt-6 mb-3 border-b border-border/50 pb-2", isRtl ? "text-right" : "text-left")}>
                 {children}
               </h1>
             ),
             h2: ({ children }) => (
-              <h2 className={cn("font-display text-xl sm:text-2xl font-bold tracking-tight text-text mt-5 mb-2.5 clear-both", isRtl ? "text-right" : "text-left")}>
+              <h2 className={cn("font-display text-xl sm:text-2xl font-bold tracking-tight text-text mt-5 mb-2.5", isRtl ? "text-right" : "text-left")}>
                 {children}
               </h2>
             ),
             h3: ({ children }) => (
-              <h3 className={cn("font-display text-lg sm:text-xl font-semibold text-text mt-4 mb-2 clear-both", isRtl ? "text-right" : "text-left")}>
+              <h3 className={cn("font-display text-lg sm:text-xl font-semibold text-text mt-4 mb-2", isRtl ? "text-right" : "text-left")}>
                 {children}
               </h3>
             ),
             h4: ({ children }) => (
-              <h4 className={cn("font-display text-base font-semibold text-text mt-3 mb-1.5 clear-both", isRtl ? "text-right" : "text-left")}>
+              <h4 className={cn("font-display text-base font-semibold text-text mt-3 mb-1.5", isRtl ? "text-right" : "text-left")}>
                 {children}
               </h4>
             ),
             p: ({ children }) => (
-              <p className={cn("text-base leading-relaxed text-text/90 my-2 font-normal whitespace-pre-wrap", isRtl ? "text-right" : "text-left")}>
+              <div className={cn("text-base leading-relaxed text-text/90 my-2 font-normal", isRtl ? "text-right" : "text-left")}>
                 {children}
-              </p>
+              </div>
             ),
             strong: ({ children }) => (
               <strong className="font-bold text-text">{children}</strong>
@@ -171,7 +193,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
               <li className={cn("leading-relaxed", isRtl ? "text-right" : "text-left", liClassName)}>{children}</li>
             ),
             blockquote: ({ children }) => (
-              <blockquote className={cn("my-4 bg-accent/5 px-4 py-3 text-base italic text-muted clear-both", isRtl ? "border-r-4 border-accent rounded-l-xl text-right" : "border-l-4 border-accent rounded-r-xl text-left")}>
+              <blockquote className={cn("my-4 bg-accent/5 px-4 py-3 text-base italic text-muted", isRtl ? "border-r-4 border-accent rounded-l-xl text-right" : "border-l-4 border-accent rounded-r-xl text-left")}>
                 {children}
               </blockquote>
             ),
@@ -179,7 +201,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
               const isBlock = codeClassName?.includes("language-");
               if (isBlock) {
                 return (
-                  <pre dir="ltr" className="my-4 overflow-x-auto rounded-xl border border-border/80 bg-surface-2 p-4 font-mono text-xs sm:text-sm text-text shadow-inner text-left clear-both">
+                  <pre dir="ltr" className="my-4 overflow-x-auto rounded-xl border border-border/80 bg-surface-2 p-4 font-mono text-xs sm:text-sm text-text shadow-inner text-left">
                     <code>{children}</code>
                   </pre>
                 );
@@ -207,7 +229,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
               const imgIndex = allImages.findIndex((img) => img.src === src);
 
               return (
-                <figure className={cn("group relative inline-block not-prose", containerCls)}>
+                <figure className={cn("group relative not-prose", containerCls)}>
                   <div
                     onClick={() => setActiveImageIndex(imgIndex >= 0 ? imgIndex : 0)}
                     className="relative overflow-hidden rounded-xl border border-border/80 bg-surface-2/40 shadow-sm transition-all duration-200 hover:border-accent/50 hover:shadow-md cursor-zoom-in"

@@ -23,7 +23,6 @@ import { CategoryForm } from "@/components/forms/CategoryForm";
 import { NoteSplitView } from "@/components/notes/NoteSplitView";
 import { NoteListView } from "@/components/notes/NoteListView";
 import { isRtlText } from "@/components/ui/MarkdownRenderer";
-import { extractFirstImageUrl } from "@/lib/images";
 import { Card } from "@/components/ui/primitives";
 import { Hydrate } from "@/lib/hydration";
 import { cn } from "@/lib/utils";
@@ -59,7 +58,6 @@ function NoteCard({
 
   const contentType: NoteContentType = note.contentType || "note";
   const Icon = TYPE_ICONS[contentType] || StickyNote;
-  const firstImage = extractFirstImageUrl(note.body);
 
   return (
     <article className="card card-hover mb-3 sm:mb-4 block break-inside-avoid p-4 sm:p-5 transition-all group">
@@ -100,21 +98,6 @@ function NoteCard({
           </button>
         </div>
       </div>
-
-      {firstImage && (
-        <div
-          onClick={onRead}
-          className="mb-3 overflow-hidden rounded-xl border border-border/60 bg-surface-2/30 aspect-video max-h-40 cursor-pointer"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={firstImage}
-            alt={note.title}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        </div>
-      )}
 
       <button onClick={onRead} className="block w-full text-left group-hover:opacity-95 transition-opacity">
         {/* Note Title - Only Title Appears */}
