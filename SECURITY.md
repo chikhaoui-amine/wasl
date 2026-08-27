@@ -1,28 +1,41 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+WASL Local is currently developed from the `main` branch before its first stable release.
 
----
+| Channel | Supported |
+| --- | --- |
+| Latest `main` | ✅ |
+| Older snapshots / forks | ❌ |
 
-## Reporting a Vulnerability
+After tagged stable releases begin, this table will be replaced with a versioned support policy.
 
-The WASL maintainers take security seriously. If you discover a security vulnerability or privacy issue in WASL, please report it responsibly.
+## Reporting a vulnerability
 
-### How to Report
-- **Do not open a public GitHub issue** for sensitive security vulnerabilities.
-- Please report vulnerabilities privately via GitHub Security Advisories or by contacting the maintainer directly.
-- Include detailed steps to reproduce the issue, proof-of-concept payloads (if applicable), and your assessment of the impact.
+Please **do not open a public GitHub issue** for a security vulnerability or privacy issue.
 
----
+Report sensitive findings privately through GitHub's security reporting flow when available, or contact the maintainer through the contact information on the maintainer's GitHub profile.
 
-## Security Architecture
+A useful report includes:
 
-- **Local-First & Offline**:
-  - Operates completely offline with zero telemetry, zero analytics, and zero external network calls.
-  - All data is stored locally in the browser's IndexedDB via Dexie.
-  - Direct STDIO MCP connector operates over an authenticated loopback TCP WebSocket on `127.0.0.1` (mandatory connector secret, timing-safe comparison, strict origin validation).
+- affected version or commit;
+- steps to reproduce;
+- expected and actual behavior;
+- impact assessment;
+- a minimal proof of concept when appropriate.
+
+Do not include real personal WASL data, connector secrets, credentials, or unrelated private information in a report.
+
+## Security architecture
+
+WASL Local is designed around a narrow local trust boundary:
+
+- Personal workspace data is stored in browser IndexedDB through Dexie.
+- The application contains no analytics or telemetry.
+- Normal Local operation does not send workspace data to an external backend.
+- The direct MCP connector communicates over `127.0.0.1` and requires a connector secret.
+- Connector profiles support read/read-write permissions and domain-level access controls.
+- Connector secrets can be rotated or revoked from **Settings → AI connections**.
+
+For more detail, see [`docs/security/security-model.md`](docs/security/security-model.md).
