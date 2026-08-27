@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Flame, GripVertical, Pencil, Plus, Trophy } from "lucide-react";
-import { Reorder } from "framer-motion";
 import {
   useHabitsData,
   habitStreak,
@@ -58,6 +57,8 @@ export default function HabitsPage() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Habit | undefined>();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const week = weekISO();
   const t = todayISO();
@@ -73,6 +74,39 @@ export default function HabitsPage() {
     .slice(0, 3);
 
   const openHabit = habits.find((h) => h.id === openId);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData("text/plain", id);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverId !== id) {
+      setDragOverId(id);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = (targetId: string, e: React.DragEvent) => {
+    e.preventDefault();
+    setDraggedId(null);
+    setDragOverId(null);
+    const sourceId = e.dataTransfer.getData("text/plain");
+    if (!sourceId || sourceId === targetId) return;
+    const sourceIdx = habits.findIndex((h) => h.id === sourceId);
+    const targetIdx = habits.findIndex((h) => h.id === targetId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+    const newHabits = [...habits];
+    const [removed] = newHabits.splice(sourceIdx, 1);
+    newHabits.splice(targetIdx, 0, removed);
+    reorderHabits(newHabits);
+  };
 
   return (
     <Hydrate>
@@ -95,12 +129,7 @@ export default function HabitsPage() {
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           {/* habit rows (2-column grid) */}
-          <Reorder.Group
-            axis="y"
-            values={habits}
-            onReorder={reorderHabits}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:col-span-2 items-start"
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:col-span-2 items-start">
             {habits.length === 0 && (
               <Card className="p-10 text-center text-sm text-faint sm:col-span-2">
                 No habits yet — start with one small daily win.
@@ -109,12 +138,29 @@ export default function HabitsPage() {
             {habits.map((h, idx) => {
               const streak = habitStreak(h);
               const done = weekDone(h);
-              const hitTarget = done >= h.targetPerWeek;
               const isFirst = idx === 0;
               const isLast = idx === habits.length - 1;
+              const isDragging = draggedId === h.id;
+              const isOver = dragOverId === h.id && draggedId !== h.id;
 
               return (
-                <Reorder.Item key={h.id} value={h} className="group list-none">
+                <div
+                  key={h.id}
+                  draggable={habits.length > 1}
+                  onDragStart={(e) => handleDragStart(e, h.id)}
+                  onDragOver={(e) => handleDragOver(e, h.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(h.id, e)}
+                  onDragEnd={() => {
+                    setDraggedId(null);
+                    setDragOverId(null);
+                  }}
+                  className={cn(
+                    "group transition-all duration-150",
+                    isDragging && "opacity-40 scale-[0.98]",
+                    isOver && "ring-2 ring-accent rounded-[16px]",
+                  )}
+                >
                   <Card className="p-3 rounded-[14px] sm:rounded-[16px] transition-all hover:border-border-strong h-full flex flex-col justify-between">
                     {/* Top Block: Habit Info & Actions */}
                     <div className="flex items-center justify-between gap-2 mb-2.5">
@@ -248,10 +294,10 @@ export default function HabitsPage() {
                       })}
                     </div>
                   </Card>
-                </Reorder.Item>
+                </div>
               );
             })}
-          </Reorder.Group>
+          </div>
 
           {/* side stats */}
           <div className="space-y-4">
