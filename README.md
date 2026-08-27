@@ -19,6 +19,7 @@
 </p>
 
 <p align="center">
+  <a href="#install-as-an-app-pwa">Install as App</a> ·
   <a href="#why-wasl">Why WASL</a> ·
   <a href="#what-you-get">Features</a> ·
   <a href="#ai-that-can-work-with-your-system">MCP</a> ·
@@ -26,6 +27,20 @@
   <a href="#your-data-stays-yours">Privacy</a> ·
   <a href="#documentation">Docs</a>
 </p>
+
+---
+
+## Install as an App (PWA)
+
+WASL is an installable Progressive Web App (PWA) that runs offline with native-like performance on Desktop, iPhone, iPad, and Android:
+
+| Device / Platform | How to Install |
+| --- | --- |
+| **Desktop**<br>*(Chrome, Edge, Brave, Arc)* | Open WASL in your browser → Click the **Install** icon in the address bar (or browser menu `⋮` → **Install WASL**). Launches in a dedicated, borderless window with a desktop/dock shortcut. |
+| **iOS / iPadOS**<br>*(Safari)* | Open WASL in Safari → Tap the **Share** button (box with upward arrow) → Scroll down and tap **"Add to Home Screen"** → Tap **Add**. |
+| **Android**<br>*(Chrome)* | Open WASL in Chrome → Tap `⋮` (menu) in the top-right corner → Tap **"Install app"** or **"Add to Home screen"**. |
+
+Once installed, WASL runs standalone with zero network latency, persistent offline caching, and instant launch from your home screen or application launcher.
 
 ---
 
