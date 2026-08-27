@@ -19,7 +19,7 @@ const jetbrains = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["lati
 export function generateMetadata(): Metadata {
   return {
     title: "WASL",
-    description: "A calm command center for goals, tasks, habits, faith, and self.",
+    description: "A local-first personal workspace for goals, tasks, notes, habits, and AI connections.",
     applicationName: "WASL",
     icons: {
       icon: [
