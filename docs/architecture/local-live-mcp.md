@@ -1,114 +1,123 @@
-# WASL Local Live MCP Architecture
+# WASL Local MCP Architecture
 
 ## Overview
 
-The WASL Local MCP Architecture provides a single, direct mode for AI assistants to interact with WASL Local Edition:
+WASL Local exposes a single MCP path for compatible AI clients:
 
-1. **Direct Local MCP (`packages/wasl-mcp-local`)**: An official Model Context Protocol server communicating over standard I/O (STDIO) with local desktop tools (Antigravity, Claude Code, Cursor, Hermes, OpenClaw, Codex, Windsurf, VS Code, Zed, Continue, Cline / Roo, Generic STDIO) and bridging to the local browser PWA via an authenticated loopback WebSocket on `127.0.0.1`. The connector secret is mandatory; the bridge refuses unauthenticated connections.
-
-> Cloud AI clients (e.g. claude.ai) connect to the CLOUD edition's MCP server at `/api/mcp` via OAuth 2.1 — see docs/security/security-model.md. The former experimental Web Relay was removed.
-Both modes execute operations purely through the framework-independent **`LocalMcpExecutor`** directly against IndexedDB/Dexie via `LocalAdapter`. User data never leaves the local machine.
-
-> **Local PWA Dependency**: Direct Local STDIO connections work exclusively while the WASL Local PWA is open in your browser. Closing the window immediately severs the loopback bridge and returns `WASL_LOCAL_OFFLINE`.
-
----
-
-## 1. Direct Local MCP Architecture
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ Desktop AI Client (Antigravity / Cursor / Hermes / Claude Code / etc.) │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │ STDIO (JSON-RPC 2.0)
-                                   ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ packages/wasl-mcp-local (Node.js CLI process)                          │
-│ - Official @modelcontextprotocol/sdk Server                            │
-│ - Exposes all 12 WASL store tools                                      │
-│ - Runs Loopback WebSocket Bridge on 127.0.0.1:<port>                   │
-│ - Each connector profile gets its own dynamically allocated port       │
-│ - Exits cleanly when STDIO closes                                      │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │ Authenticated Loopback WS (127.0.0.1:<port>)
-                                   │ Handshake: { "type": "auth", "secret": "..." }
-                                   ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ WASL Local PWA (Browser / IndexedDB)                                   │
-│ - useMultiLoopbackSocket Hook                                          │
-│ - LocalMcpExecutor (11 domains + trash + idempotency)                  │
-│ - Client Permissions (Read vs Read+Write)                              │
-│ - Per-Domain Gating (every domain gated by profile allowlist)          │
-│ - Local Audit Logging                                                  │
-│ - Dexie / IndexedDB Persistence                                        │
-└────────────────────────────────────────────────────────────────────────┘
+```text
+AI client
+   │
+   │ STDIO / JSON-RPC
+   ▼
+wasl-mcp-local
+   │
+   │ authenticated loopback WebSocket
+   │ 127.0.0.1:<profile-port>
+   ▼
+WASL browser / PWA
+   │
+   ▼
+LocalMcpExecutor
+   │
+   ▼
+LocalAdapter → Dexie → IndexedDB
 ```
 
-### Universal Connector-Profile System
+The connector runs on the user's computer. Personal WASL data remains in the browser's local IndexedDB database and is accessed through the same Local data adapter used by the application.
 
-WASL uses a dynamic connector-profile architecture rather than fixed hardcoded tabs:
-- **Dynamic Port Range (`42424–42499`)**: Ports are allocated on demand from available loopback ports. No permanent port is hardcoded to any product name.
-- **Unique 256-bit Secrets**: Each connection has its own cryptographic key (`wasl_sec_<id>_<randomHex>`), rotatable on demand.
-- **Multi-Instance Support**: Run multiple simultaneous connections for the same client (e.g. "Cursor Work" on port 42424 and "Cursor Personal" on port 42425).
-- **Universal STDIO Bridge**: All presets utilize the identical `packages/wasl-mcp-local` bridge and share the canonical `LocalMcpExecutor`.
+The WASL browser/PWA instance must be running for MCP requests to succeed. Closing it removes the browser-side bridge, so the local connector cannot access WASL data while the computer or application is offline.
 
-### Preset Configuration Catalog
+## Connector process
 
-WASL provides built-in presets that generate exact copy-ready configurations:
+The Node.js connector lives in `packages/wasl-mcp-local/`.
 
-| Preset | Category | Configuration Format |
-|---|---|---|
-| **Antigravity IDE & CLI** | IDE / Editor | `mcpServers` JSON for `~/.gemini/antigravity-ide/mcp_config.json` + `agy mcp add` CLI command |
-| **Hermes Agent** | Autonomous Agent | `mcp_servers` YAML (`~/.hermes/config.yaml`) + JSON snippet |
-| **OpenClaw** | Autonomous Agent | `mcp.servers` JSON with required `bundle-mcp` sandbox permissions note |
-| **Claude Code** | Terminal / CLI | `claude mcp add` CLI command + `.mcp.json` |
-| **Claude Desktop** | IDE / Editor | `claude_desktop_config.json` |
-| **Codex CLI** | Terminal / CLI | `codex mcp add` CLI command + `~/.codex/config.json` |
-| **Cursor** | IDE / Editor | `~/.cursor/mcp.json` + Command UI setup |
-| **Windsurf** | IDE / Editor | `~/.codeium/windsurf/mcp_config.json` |
-| **VS Code** | IDE / Editor | `.vscode/mcp.json` |
-| **Zed** | IDE / Editor | `context_servers` JSON for `settings.json` |
-| **Continue** | IDE / Editor | `~/.continue/config.json` |
-| **Cline / Roo Code** | IDE / Editor | `cline_mcp_settings.json` / `roo_mcp_settings.json` |
-| **Generic STDIO** | Custom / Protocol | Universal JSON + Raw CLI command |
-| **Custom Client** | Custom / Protocol | Configurable transport (STDIO, Streamable HTTP) |
+It:
 
-### Origin Enforcement Policy (Loopback Bridge)
+- exposes WASL MCP tools through the official `@modelcontextprotocol/sdk`;
+- communicates with MCP clients over STDIO;
+- bridges requests to the active WASL browser/PWA instance through loopback only;
+- uses a dynamically allocated local port per connector profile;
+- requires a profile-specific connector secret;
+- exits cleanly when its STDIO client disconnects.
 
-The loopback WebSocket bridge validates the `Origin` header in the following precedence order:
-1. **Loopback origins** (`localhost`, `127.0.0.1`, `::1` over `http:` or `https:`) — always allowed.
-2. **Custom URI schemes** (`app:`, `wasl:`, `vscode-webview:`, `chrome-extension:`) — allowed.
-3. **Exact allowlist via `WASL_ALLOWED_ORIGINS` env var** — comma-separated, exact, case-insensitive.
-4. **Missing, empty, or foreign Origin** — rejected prior to secret authentication.
+Build it from the repository root with:
 
----
+```bash
+npm run build:mcp
+```
 
+## Browser-side executor
 
-## 3. Shared Browser Executor (`LocalMcpExecutor`)
+`LocalMcpExecutor` in `lib/relay/local-executor.ts` handles MCP operations against the Local data layer.
 
-The `LocalMcpExecutor` in `lib/relay/local-executor.ts` is framework-independent and guarantees:
-- **Full Coverage**: Handles all 11 active persisted stores (`lifeos-tasks`, `lifeos-notes`, `lifeos-goals`, `lifeos-habits`, `lifeos-blocks`, `lifeos-journal`, `lifeos-money`, `lifeos-health`, `lifeos-recurring`, `lifeos-topics`, `lifeos-trash`) plus unified `search_all`.
-- **Safe Soft Deletions**: Deleting any item moves it to `lifeos-trash` with metadata for non-destructive restore.
-- **Write Idempotency**: Caches write responses by `idempotencyKey` in a sliding LRU cache to prevent duplicated entries during network retries.
-- **Defensive Pagination**: Standardises result limits (max 50) and cursor offsets.
-- **Client Permissions**:
-  - `permission: "read"` blocks any write/mutation tools.
-  - `allowedDomains`: Per-domain gating; sensitive domains (`journal`, `money`, `health`) are opt-in and disabled by default.
-- **Local Audit Log**: Stores execution history (client ID, client name, tool, domain, outcome, latency) in `localStorage` under `wasl_mcp_audit_log`.
+Important properties:
 
----
+- MCP operations use `LocalAdapter`; there is no remote database dependency.
+- Read and write operations share the application's normal validation and persistence boundaries.
+- Destructive operations use safe entity resolution and refuse ambiguous matches.
+- Writes support idempotency protection to reduce accidental duplicate mutations.
+- Results are bounded/paginated where appropriate.
+- Deletion uses WASL's normal soft-delete/trash behavior where supported.
 
-## 4. Settings Experience
+## Connector profiles
 
-Under **Settings → AI & MCP Settings**, users can:
-- Enable/disable Direct Local AI Connector.
-- Add new connector profiles from 13+ presets or custom protocol settings.
-- Rename, enable, disable, or revoke individual connection profiles.
-- View and rotate the per-client 256-bit Connector Secret.
-- Copy one-click configuration snippets tailored for their client of choice.
-- Manage client access permissions (Read vs Read+Write) and toggle per-domain access (`Journal`, `Money`, `Health` are opt-in).
-- Inspect real-time audit logs of all AI tool executions with client filtering and latency metrics.
+WASL uses independent connector profiles instead of one global AI credential.
 
----
+Each profile can have:
 
-## 5. Security & Verification Summary
+- its own generated secret;
+- its own local port;
+- read-only or read-write permission;
+- an allowlist of accessible WASL domains;
+- enable/disable and revocation state;
+- a local audit trail.
 
+Sensitive domains such as journal, money, and health can be gated separately rather than automatically exposed to every connection.
+
+Profiles and copy-ready client configurations are managed in **Settings → AI connections**.
+
+## Supported client patterns
+
+The UI contains presets for multiple MCP-capable clients and also supports custom connections. Presets generate configuration using the same local connector architecture rather than separate per-client backends.
+
+Examples include:
+
+- Claude Code
+- Claude Desktop
+- Codex
+- Cursor
+- VS Code
+- Windsurf
+- Zed
+- Continue
+- Cline / Roo Code
+- other compatible STDIO clients
+
+See [MCP setup](../guides/mcp-setup.md) for user-facing configuration instructions.
+
+## Loopback boundary
+
+The browser-side bridge accepts local connections only and validates connection origin before connector-secret authentication.
+
+Loopback origins such as `localhost`, `127.0.0.1`, and `::1` are supported. Approved custom application schemes and explicitly configured local origins may also be accepted by the implementation where needed for compatible clients.
+
+A connector secret should be treated like a local credential. Users can rotate or revoke it from **Settings → AI connections**.
+
+## Permission enforcement
+
+MCP authorization is enforced per connector profile:
+
+- `read` profiles cannot execute mutation tools;
+- `read_write` profiles can mutate only permitted domains;
+- domain access is checked for every tool invocation;
+- destructive operations do not bypass normal entity-resolution safeguards.
+
+The connector's local audit log records relevant execution metadata such as client/profile, tool, domain, outcome, and latency. It is stored locally and is not remote telemetry.
+
+## Trust boundary
+
+WASL Local's MCP design protects the boundary between a local AI client and the browser-hosted personal database; it does not make an untrusted local machine safe.
+
+A process with sufficient access to the user's machine or browser profile may already be able to access local files, browser state, or connector configuration. Users should therefore connect only AI clients they trust and grant the minimum domains/permissions they need.
+
+For the broader threat model, see [Security model](../security/security-model.md).

@@ -16,11 +16,12 @@
 /out/
 /public/precache-manifest.json
 
-# production
+# production / local artifacts
 /build
 /.backups/
 /scratch/
 *.wasl-backup
+*.wasl-transfer
 tests/e2e/profiles/
 
 # misc
@@ -49,4 +50,3 @@ next-env.d.ts
 
 # package builds
 packages/*/dist/
-services/*/dist/

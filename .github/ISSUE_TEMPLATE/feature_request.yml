@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest an improvement for WASL Local
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What user problem should this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the smallest useful version of the feature.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Personal workspace
+        - Local storage / data portability
+        - MCP / AI connections
+        - PWA / offline
+        - Design / usability
+        - Developer experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Trade-offs or alternatives
+      description: Mention any privacy, storage, offline, complexity, or compatibility concerns you see.
+
+  - type: checkboxes
+    id: local_first
+    attributes:
+      label: Local-first constraint
+      options:
+        - label: This proposal does not require WASL Local to depend on a hosted backend for normal use.
+          required: true

@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a reproducible problem in WASL Local
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not include connector secrets, personal WASL data, or other sensitive information.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 151, Firefox 143, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, macOS, Arch Linux, etc.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - General UI
+        - Local storage / IndexedDB
+        - Backup / transfer
+        - MCP / AI connections
+        - PWA / offline
+        - Tasks / goals / notes
+        - Habits / health / journal
+        - Money / learning / calendar
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste only non-sensitive logs or errors. Remove tokens, connector secrets, and personal content first.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked that this is not a security/privacy vulnerability requiring private disclosure.
+          required: true
+        - label: I removed personal data and secrets from this report.
+          required: true

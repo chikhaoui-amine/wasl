@@ -1,171 +1,211 @@
-# WASL (وصل)
-
 <p align="center">
-  <img src="public/logo.svg" alt="WASL Logo" width="80" height="80" />
+  <img src="docs/assets/wasl-banner.svg" alt="WASL — local-first personal workspace with MCP integration" width="100%" />
 </p>
 
 <p align="center">
-  <strong>A calm, local-first personal command center for goals, tasks, knowledge, habits, and AI tools.</strong>
+  <strong>Your life, organized locally — and accessible to the AI tools you choose.</strong>
 </p>
 
 <p align="center">
-  <em>Open-source for personal and non-commercial use under the PolyForm Noncommercial License 1.0.0.</em>
+  <a href="https://github.com/chikhaoui-amine/wasl/actions/workflows/ci.yml"><img src="https://github.com/chikhaoui-amine/wasl/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
+  <img src="https://img.shields.io/badge/data-local--first-111111" alt="Local-first" />
+  <img src="https://img.shields.io/badge/MCP-local%20connector-111111" alt="Local MCP" />
+  <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-111111" alt="PolyForm Noncommercial license" />
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#mcp-ai-integration">MCP AI Integration</a> •
-  <a href="#data-storage--privacy">Privacy</a> •
-  <a href="#backup--export">Backup & Export</a> •
-  <a href="#pwa--offline">PWA & Offline</a> •
-  <a href="#license">License</a>
+  <a href="#why-wasl">Why WASL</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#mcp--ai-connections">MCP</a> ·
+  <a href="#privacy--data">Privacy</a> ·
+  <a href="#documentation">Docs</a>
 </p>
 
 ---
 
-## Overview
+## What is WASL?
 
-**WASL** (meaning *connection* / *continuity*) is a local-first personal management system and life OS built with **Next.js 16**, **React 19**, **Tailwind CSS v4**, and **Dexie (IndexedDB)**.
+**WASL (وصل)** is a local-first personal workspace for tasks, goals, notes, habits, health, money, learning, journaling, and planning.
 
-All your data is stored directly in your browser with zero remote database requirement, zero accounts, and zero telemetry. It features bidirectional **Model Context Protocol (MCP)** integration so local AI tools (such as Claude Code, Codex, Cursor, and Claude Desktop) can read and update your personal system with granular permission controls.
+The important difference is not another dashboard. WASL exposes your system to compatible AI tools through a **permission-controlled local Model Context Protocol (MCP) connector**. Your AI can read or update the parts of WASL you explicitly allow, while your personal data remains on your device.
 
-> An official hosted WASL Cloud edition is maintained separately.
+There are **no accounts, no remote database, no telemetry, and no required API keys** in WASL Local.
 
----
+> The official hosted WASL Cloud product is maintained separately and is not part of this repository.
+
+## Why WASL
+
+| | WASL approach |
+| --- | --- |
+| **Own your data** | Personal data is stored in browser IndexedDB through Dexie. |
+| **Work offline** | Core WASL functionality runs without an internet connection. |
+| **Connect AI locally** | Claude Code, Codex, Claude Desktop, Cursor, and other compatible clients can connect through local MCP. |
+| **Control access** | MCP connections have per-client secrets, read/read-write permissions, and domain-level access controls. |
+| **Keep one system** | Tasks, goals, notes, habits, health, money, learning, journal, calendar, and recurring work live together. |
+| **Move your data** | Full backups and selective transfers let you restore or migrate your workspace. |
 
 ## Features
 
-### 🎯 Core Modules
+### Personal workspace
 
-- **Tasks**: Active tasks, subtasks, priorities, timeframes, and daily focus pinning.
-- **Goals**: Multi-horizon goals (North Stars, Outcomes, Challenges) with milestones and progress indicators.
-- **Notes**: Second-brain note taking with tags, categories, pinned notes, and Markdown preview.
-- **Time Blocks**: Visual schedule planner with time-blocking grids and calendar view.
-- **Journal**: Daily timeline entries with mood ratings, reflections, and tags.
-- **Habits**: Daily habit tracker with streak counts, frequency targets, and weekly completion heatmaps.
-- **Health**: Workout logging, custom exercises, training programs, and health metrics.
-- **Money**: Income/expense tracking, categorization, monthly runway, and savings targets.
-- **Learning Topics**: Step-by-step topic roadmaps, substeps, notes, and resource links.
-- **Recurring Tasks**: Template-based recurring tasks with custom cadences.
-- **Trash**: Soft-deletion repository with instant one-click restoration across all modules.
+- **Tasks** — subtasks, priorities, timeframes, daily focus, and goal linkage.
+- **Goals** — North Stars, outcomes, challenges, milestones, and progress tracking.
+- **Notes** — Markdown notes, tags, categories, colors, pinning, and search-friendly structure.
+- **Calendar & time blocks** — plan days visually and connect scheduled work to the rest of WASL.
+- **Journal** — day-based entries, mood tracking, reflections, and tags.
+- **Habits** — frequencies, streaks, targets, and completion history.
+- **Health** — workouts, exercises, programs, and health metrics.
+- **Money** — income, expenses, categories, runway, and savings targets.
+- **Learning** — topic roadmaps, steps, notes, and resource links.
+- **Recurring tasks** — reusable recurring templates and cadence rules.
+- **Trash & restore** — soft deletion across supported domains.
 
-### 🤖 Model Context Protocol (MCP)
+### MCP & AI connections
 
-- **Local MCP Server**: Connect local AI agents (Claude Code, Codex, Cursor, Claude Desktop) directly to your local WASL data.
-- **Real-Time Loopback Bridge**: Secure local WebSocket relay with token authentication.
-- **Permission Presets**: Configurable permission profiles (Read-Only, Assistant, Manager, Full Access).
+- Local STDIO MCP connector package: `wasl-mcp-local`.
+- Authenticated loopback communication over `127.0.0.1`.
+- Separate connector profiles for different AI clients.
+- Read-only or read-write access per connection.
+- Domain-level permission controls, including sensitive-domain gating.
+- Secret rotation, revocation, enable/disable controls, and local audit logs.
 
-### 🎨 Themes & Design
+### PWA & offline
 
-- **"Depth & Glass" Design System**: Polished aesthetic with fluid animations, glassmorphism, and keyboard shortcuts (`Cmd/Ctrl + K` command palette, `C` quick capture).
-- **Themes**: Switch between multiple curated themes including *Midnight Obsidian Glass*, *Editorial Porcelain*, and *Warm Desert Luxe*.
+- Installable Progressive Web App.
+- Offline application shell and local data access.
+- No remote account is required to use the workspace.
 
-### 📱 PWA & Offline
+### Design
 
-- **Installable PWA**: Install WASL as a standalone desktop or mobile progressive web app.
-- **100% Offline**: Operates fully offline without network connectivity.
+WASL includes multiple curated themes, keyboard-driven navigation, quick capture, command search, and a responsive interface designed for daily use rather than setup-heavy configuration.
 
----
+## Quick start
 
-## Quick Start
+### Requirements
 
-### Prerequisites
+- **Node.js 20+**
+- **npm 10+**
 
-- **Node.js**: v20 or higher
-- **npm**: v10 or higher
-
-### Installation
+### Run locally
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/chikhaoui-amine/wasl.git
 cd wasl
-
-# 2. Install dependencies
 npm install
-
-# 3. Start the development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. WASL is immediately ready — no accounts, database setup, or API keys required.
+Open **http://localhost:3000**.
 
-### Production Build
+No `.env` values, database setup, account, or API key is required.
+
+### Production build
 
 ```bash
-# Build the production application
 npm run build
-
-# Start the production server
 npm run start
 ```
 
----
+### Verify the project
 
-## MCP (Model Context Protocol) Integration
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build:mcp
+npm run build
+```
 
-WASL includes a built-in local MCP connector package (`@wasl/mcp-local`) that allows AI coding tools and desktop assistants to interact with your data.
+## MCP & AI connections
 
-### 1. Build the MCP package
+WASL's local MCP connector lets compatible AI clients interact with the data in your active local WASL instance.
+
+### 1. Start WASL
+
+```bash
+npm run dev
+```
+
+### 2. Build the connector
 
 ```bash
 npm run build:mcp
 ```
 
-### 2. Configure Your AI Client
+### 3. Create a connection
 
-#### Claude Desktop
+In WASL, open **Settings → AI connections**. Create a connector profile for your client, choose its permissions and allowed domains, then use the configuration WASL generates for that profile.
 
-Add the following to your Claude Desktop configuration (`claude_desktop_config.json`):
+### 4. Connect your AI client
 
-```json
-{
-  "mcpServers": {
-    "wasl": {
-      "command": "node",
-      "args": ["/path/to/wasl/packages/wasl-mcp-local/dist/cli.js"]
-    }
-  }
-}
+Detailed setup examples for **Codex, Claude Code, Claude Desktop, and Cursor** are in the [MCP setup guide](docs/guides/mcp-setup.md).
+
+> The browser/PWA instance must be running for the local MCP bridge to access its IndexedDB data. WASL Local does not become an always-online server when your computer is off.
+
+## Privacy & data
+
+WASL Local is designed around a simple boundary: **your workspace data stays on your device**.
+
+- Personal data is persisted in the browser's **IndexedDB** database (`wasl-local`) through Dexie.
+- WASL Local has **no analytics or telemetry**.
+- Normal local operation makes **no outbound application data requests**.
+- MCP communication stays on the local loopback interface (`127.0.0.1`) and requires connector authentication.
+- The repository requires no Cloud credentials or Supabase configuration.
+
+For the threat model and trust boundaries, read the [security model](docs/security/security-model.md).
+
+### Important storage note
+
+Browser storage is tied to the browser profile and origin you use. Clearing site data, using another browser/profile, changing how you host WASL, or resetting browser storage can make the local database unavailable.
+
+**Export backups regularly.**
+
+## Backup, export & import
+
+Go to **Settings → Backup & transfer**.
+
+- **Full backup** exports a `.wasl-backup` containing supported local domains.
+- **Import backup** restores a compatible WASL backup.
+- **Selective transfer** exports chosen domains/entities as `.wasl-transfer` for controlled migration or merging.
+
+See the [backup & recovery guide](docs/guides/backup-recovery.md) before moving or clearing browser data.
+
+## Project structure
+
+```text
+app/                       Next.js routes
+components/                UI and feature components
+lib/data/                  local data layer, domains, validation, migrations
+lib/relay/                 local MCP bridge, permissions, presets, audit
+packages/wasl-mcp-local/   STDIO MCP connector package
+public/                    PWA assets, icons, service worker
+docs/                      architecture, setup, security documentation
+tests/                     unit, integration, and end-to-end verification
 ```
 
-#### Claude Code / Codex
+## Documentation
 
-Configure the MCP server in your client settings or run:
+- [Data architecture](docs/architecture/data-architecture.md)
+- [Local MCP architecture](docs/architecture/local-live-mcp.md)
+- [Design system](docs/architecture/design-system.md)
+- [MCP setup](docs/guides/mcp-setup.md)
+- [Backup & recovery](docs/guides/backup-recovery.md)
+- [Security model](docs/security/security-model.md)
+- [Dependency licenses](docs/security/dependency-licenses.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
 
-```bash
-npm run mcp:local
-```
+## Contributing
 
-In the WASL settings UI under **AI Connections**, you can configure connector tokens and permissions.
+Bug reports and improvements are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
----
-
-## Data Storage & Privacy
-
-- **On-Device Storage**: All personal data is persisted in your browser's local **IndexedDB** database (`wasl-local`) via Dexie.js.
-- **Zero Telemetry**: WASL Local makes **no external network calls**, sends no analytics, and tracks no user behavior.
-- **Loopback Isolation**: The local MCP connector communicates strictly over `127.0.0.1` with authentication.
-
----
-
-## Backup, Export & Import
-
-Because data lives in browser storage, clearing your browser history or site data can delete your local database. Regular backups are strongly recommended:
-
-1. Open **Settings → Backup & transfer**.
-2. Click **Export Backup** to download a `.wasl-backup` file.
-3. To restore or move data to a new device, click **Import Backup** and select your file.
-4. WASL also supports **Selective Transfer** (`.wasl-transfer`) to export and merge specific domains or entities.
-
----
+If your change touches persistence, migrations, backups, or MCP tools, also read [AGENTS.md](AGENTS.md) for the invariants that protect user data and connector behavior.
 
 ## License
 
-This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+WASL is **source-available for personal, educational, and other non-commercial use** under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
-- **Personal & Non-Commercial Use**: Free to use, modify, and run for personal, educational, and non-commercial purposes.
-- **Commercial Use**: Commercial use, SaaS hosting, resale, or integration into paid commercial products requires written permission from the maintainer.
+Commercial use, commercial hosting, resale, or integration into a paid commercial product requires separate permission from the maintainer.
 
-Brand names, trademarks, and logos remain protected under [TRADEMARKS.md](TRADEMARKS.md).
+The WASL name, logo, and brand assets are covered separately by [TRADEMARKS.md](TRADEMARKS.md).
