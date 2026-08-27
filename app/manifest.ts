@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "WASL",
     short_name: "WASL",
-    description: "A calm, offline-first personal operating system for goals, tasks, habits, and self.",
+    description: "A local-first personal workspace for goals, tasks, notes, habits, and AI connections.",
     start_url: "/",
     display: "standalone",
     background_color: "#121212",
