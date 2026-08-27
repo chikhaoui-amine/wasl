@@ -34,7 +34,7 @@ export const mapLegacyCategoryToNorthStar = (catId?: string): string => {
   if (lower === "career" || lower === "work" || lower === "career_work" || lower === "ai_tech" || lower === "ai & technology") return "career_work";
   if (lower === "finance" || lower === "wealth" || lower === "money" || lower === "finance_wealth" || lower === "business_finance" || lower === "business & financial freedom" || lower === "business") return "finance_wealth";
   if (lower === "health" || lower === "fitness" || lower === "health_fitness" || lower === "athletic_body" || lower === "athletic body & performance") return "health_fitness";
-  if (lower === "personal" || lower === "growth" || lower === "personal_growth" || lower === "faith" || lower === "deen" || lower === "personal_capability" || lower === "personal capability") return "personal_growth";
+  if (lower === "personal" || lower === "growth" || lower === "personal_growth" || lower === "personal_capability" || lower === "personal capability") return "personal_growth";
   if (lower === "relationships" || lower === "social" || lower === "romantic" || lower === "family" || lower === "relationships_family" || lower === "social_romantic" || lower === "social & romantic life") return "relationships_family";
   if (lower === "adventure" || lower === "adventure & experiences" || lower === "mindfulness" || lower === "well-being" || lower === "wellbeing" || lower === "balance" || lower === "mindfulness_balance") return "mindfulness_balance";
   if (lower === "creativity" || lower === "art" || lower === "craft" || lower === "creativity_craft") return "creativity_craft";
