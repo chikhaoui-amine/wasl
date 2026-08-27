@@ -1,42 +1,39 @@
-# Dependency License Audit
+# Direct Dependency License Reference
 
-This document provides a comprehensive legal and license audit of all direct runtime and development dependencies used in WASL (Core and `@wasl/mcp-local`).
+This document is a maintenance reference for the direct dependencies used by WASL Local and the `wasl-mcp-local` connector package. Package manifests and lockfiles are the source of truth for exact installed versions. Re-check dependency licenses whenever dependencies are added or upgraded.
 
----
+This document is not legal advice.
 
-## License Compatibility Overview
+## Current direct dependencies
 
-All direct dependencies in WASL are licensed under widely recognized, permissive open-source licenses (**MIT**, **Apache-2.0**, and **ISC**). These licenses explicitly permit non-commercial and source-available distribution, compilation, and bundling with appropriate copyright attributions preserved.
+| Dependency | License family | Role |
+| --- | --- | --- |
+| `@modelcontextprotocol/sdk` | MIT | MCP runtime |
+| `@tanstack/react-query` | MIT | Query/state layer |
+| `clsx` | MIT | UI utility |
+| `cmdk` | MIT | Command palette |
+| `dexie` | Apache-2.0 | IndexedDB persistence |
+| `framer-motion` | MIT | Motion/animation |
+| `lucide-react` | ISC | Icons |
+| `next` | MIT | Application framework |
+| `react`, `react-dom` | MIT | UI runtime |
+| `react-markdown` | MIT | Markdown rendering |
+| `remark-breaks`, `remark-gfm` | MIT | Markdown plugins |
+| `tailwind-merge` | MIT | CSS utility merging |
+| `ws` | MIT | Local MCP WebSocket transport |
+| `zod` | MIT | Runtime validation |
 
-| Dependency | Version | License | Category | Notes / Compatibility |
-|---|---|---|---|---|
-| `@modelcontextprotocol/sdk` | 1.26.0 | MIT | Runtime | Official MCP SDK (MIT) |
-| `@tailwindcss/postcss` | 4.3.2 | MIT | Build / CSS | Tailwind CSS PostCSS plugin (MIT) |
-| `@tanstack/react-query` | 5.102.1 | MIT | Runtime | Async state synchronization (MIT) |
-| `@testing-library/dom` | 10.4.1 | MIT | Testing | DOM testing utilities (MIT) |
-| `@testing-library/react` | 16.3.2 | MIT | Testing | React testing utilities (MIT) |
-| `@types/*` | 19.x / 20.x | MIT | Dev | TypeScript definitions (MIT) |
-| `clsx` | 2.1.1 | MIT | Runtime | Class name utility (MIT) |
-| `cmdk` | 1.1.1 | MIT | Runtime | Command palette component (MIT) |
-| `dexie` | 4.4.5 | Apache-2.0 | Runtime | IndexedDB persistence library (Apache-2.0) |
-| `eslint` & `eslint-config-next` | 9.x / 16.x | MIT | Dev | Linter & static analysis (MIT) |
-| `fake-indexeddb` | 6.2.5 | Apache-2.0 | Testing | Test environment storage mock (Apache-2.0) |
-| `framer-motion` | 12.42.2 | MIT | Runtime | Motion and animation library (MIT) |
-| `jsdom` | 26.1.0 | MIT | Testing | Headless DOM simulator (MIT) |
-| `lucide-react` | 1.23.0 | ISC | Runtime | UI icon set (ISC / Permissive) |
-| `next` | 16.2.10 | MIT | Framework | Next.js App Router (MIT) |
-| `react` & `react-dom` | 19.2.4 | MIT | Runtime | React UI framework (MIT) |
-| `react-markdown` | 10.1.0 | MIT | Runtime | Markdown renderer (MIT) |
-| `remark-breaks` & `remark-gfm` | 4.x | MIT | Runtime | Markdown formatting plugins (MIT) |
-| `tailwind-merge` | 3.6.0 | MIT | Runtime | Tailwind utility merger (MIT) |
-| `tailwindcss` | 4.3.2 | MIT | Build / CSS | Utility-first CSS framework (MIT) |
-| `typescript` | 5.9.3 | Apache-2.0 | Build | TypeScript compiler (Apache-2.0) |
-| `vitest` | 4.1.9 | MIT | Testing | Unit and integration test runner (MIT) |
-| `ws` | 8.x | MIT | Runtime | WebSocket implementation (MIT) |
-| `zod` | 3.x / 4.x | MIT | Runtime | Schema validation library (MIT) |
+## Direct development dependencies
 
----
+The repository also uses development and testing packages including TypeScript, ESLint, Tailwind CSS, Testing Library, jsdom, fake-indexeddb, Vitest, and TypeScript type packages. These are distributed under permissive licenses such as MIT or Apache-2.0 at the versions currently declared by the project.
 
-## Conclusion
+## Compatibility note
 
-None of WASL's dependencies impose viral copyleft restrictions (such as GPL/AGPL requirements) that would conflict with the **PolyForm Noncommercial License 1.0.0** model. All third-party notices and licenses are fully preserved in accordance with their respective terms.
+The direct dependencies currently used by WASL are permissively licensed and do not introduce a GPL/AGPL-style copyleft requirement into the WASL source distribution. Their own copyright notices and license terms still apply independently.
+
+Before a public release after dependency changes:
+
+1. review `package.json`, `packages/wasl-mcp-local/package.json`, and `package-lock.json`;
+2. verify the licenses of any new direct dependencies;
+3. preserve any notices required by those dependencies;
+4. update this reference if the direct dependency set changes.
