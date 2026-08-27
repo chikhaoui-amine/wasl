@@ -1,32 +1,57 @@
 # Backup, Export & Recovery Guide
 
-WASL Local provides reliable, non-destructive backup export and import mechanisms directly from your browser.
+WASL Local stores personal data in your browser's IndexedDB database (`wasl-local`). Backups are therefore essential before clearing browser data, changing browser/profile, moving to another machine, or experimenting with storage settings.
 
----
+## Full backup (`.wasl-backup`)
 
-## 1. Local Backups (`.wasl-backup`)
+### Export
 
-### Why Regular Backups Matter
-In WASL Local, all data is stored inside your browser's IndexedDB database (`wasl-local`). Browser maintenance actions—such as clearing site data, resetting cookies, or using private browsing mode—will delete IndexedDB data.
+1. Open WASL.
+2. Go to **Settings → Backup & transfer**.
+3. Export a full backup.
+4. Store the downloaded `.wasl-backup` file somewhere outside the browser profile you are protecting.
 
-### Exporting a Backup
-1. Open WASL in your browser.
-2. Click the **Settings** tab in the sidebar or navigation menu.
-3. Select **Backup & transfer**.
-4. Click **Export Backup**.
-5. Your browser will download a timestamped JSON file (e.g. `wasl-backup-2026-08-27T12-00-00-000Z.wasl-backup`).
+WASL verifies the generated backup checksum before reporting a successful export.
 
-### Importing a Backup
-To prevent accidental data corruption or conflicting merge collisions, full backups are imported into a clean database:
+### Restore
+
+A full restore requires an empty destination database.
+
+1. If the destination contains data you still need, export a backup first.
+2. Reset the local database. WASL offers a safety-backup option before destructive reset.
+3. Return to **Settings → Backup & transfer**.
+4. Select the `.wasl-backup` file and review the validation preview.
+5. Run the full restore.
+
+WASL validates the backup before importing it and rejects incompatible or invalid input rather than silently applying it.
+
+## Selective transfer (`.wasl-transfer`)
+
+Use selective transfer when you want to move or merge only chosen domains or entities into an existing WASL database.
+
+### Export
+
 1. Go to **Settings → Backup & transfer**.
-2. Click **Reset Local Data** (this automatically downloads a safety backup before resetting).
-3. Click **Import Backup** and select your `.wasl-backup` file.
-4. WASL validates schema signatures and restores all 11 active domains.
+2. Open selective export.
+3. Choose the domains and, where supported, the specific entities you want to include.
+4. Export the `.wasl-transfer` file.
 
----
+### Import
 
-## 2. Selective Transfer (`.wasl-transfer`)
+1. On the destination WASL instance, open **Settings → Backup & transfer**.
+2. Select the `.wasl-transfer` file.
+3. Review the preview and duplicate-resolution strategy.
+4. Import the transfer package.
 
-If you want to move or merge only specific modules (e.g. just Notes or Goals) into an existing database without resetting other data, use **Selective Transfer**:
-- Choose **Export Transfer** and select the domains or items you want to transfer.
-- On the target machine, use **Import Transfer** to review duplicates and merge smoothly.
+Selective transfers are designed for controlled merging; they do not require wiping the whole destination database first.
+
+## Storage safety
+
+Browser storage is scoped to a browser profile and origin. Data saved under one local URL/profile does not automatically follow you to another browser, profile, hostname, or device.
+
+Recommended practice:
+
+- export regular full backups;
+- keep at least one backup outside the machine/browser profile running WASL;
+- export before clearing site data or resetting the database;
+- verify that an important backup can be selected and previewed before deleting the original data.
