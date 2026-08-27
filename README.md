@@ -29,10 +29,6 @@
 
 ---
 
-<p align="center">
-  <img src="docs/assets/wasl-home.svg" alt="WASL home dashboard" width="100%" />
-</p>
-
 ## Why WASL
 
 Most productivity apps stop at storing information. WASL is built around a different idea: **your personal system should be structured, local, and usable by the AI tools you choose.**
