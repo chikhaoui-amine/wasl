@@ -63,7 +63,7 @@ There are **no accounts, no remote database, no telemetry, and no required API k
 
 ### MCP & AI connections
 
-- Local STDIO MCP connector package: `@wasl/mcp-local`.
+- Local STDIO MCP connector package: `wasl-mcp-local`.
 - Authenticated loopback communication over `127.0.0.1`.
 - Separate connector profiles for different AI clients.
 - Read-only or read-write access per connection.
