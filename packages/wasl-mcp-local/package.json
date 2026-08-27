@@ -1,8 +1,9 @@
 {
   "name": "wasl-mcp-local",
   "version": "0.1.0",
+  "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
-  "description": "Direct STDIO Model Context Protocol bridge for WASL Local Edition",
+  "description": "Direct STDIO Model Context Protocol bridge for WASL Local",
   "bin": {
     "wasl-mcp-local": "dist/cli.js"
   },
@@ -15,7 +16,7 @@
     "mcp",
     "model-context-protocol",
     "ai",
-    "lifeos"
+    "local-first"
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
