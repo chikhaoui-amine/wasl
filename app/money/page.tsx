@@ -1,20 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, PiggyBank, Plus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import {
+  Pencil,
+  PiggyBank,
+  Plus,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+  Building2,
+  ArrowRightLeft,
+  FilterX,
+} from "lucide-react";
 import {
   useMoneyData,
   fmtMoney,
-  balance,
+  accountBalance,
+  totalNetWorth,
   monthlyAgg,
   monthNet,
   runwayMonths,
+  ACCOUNT_TYPES,
   type Txn,
   type SavingsGoal,
+  type Account,
 } from "@/lib/data/domains/money";
 import { Card, ProgressBar, SectionTitle } from "@/components/ui/primitives";
 import { StatTile } from "@/components/ui/charts";
 import { TxnForm } from "@/components/forms/TxnForm";
+import { AccountModal, ACCOUNT_THEMES, AccountIcon } from "@/components/forms/AccountModal";
 import { Modal, Field, FormFooter, inputCls } from "@/components/ui/Modal";
 import { Hydrate } from "@/lib/hydration";
 import { relLabel } from "@/lib/date";
@@ -48,26 +62,46 @@ function getCurrencyLabel(currency: string) {
 }
 
 export default function MoneyPage() {
-  const { transactions, savings, currency, setCurrency } = useMoneyData();
+  const { accounts, transactions, savings, currency, setCurrency } = useMoneyData();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Txn | undefined>();
   const [savingsModal, setSavingsModal] = useState<SavingsGoal | "new" | undefined>();
+  const [accountModal, setAccountModal] = useState<Account | "new" | undefined>();
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
-  const bal = balance(transactions);
-  const { net, trendPct } = monthNet(transactions);
-  const runway = runwayMonths(transactions);
-  const months = monthlyAgg(transactions, 6);
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+
+  // Computed values based on selection
+  const netWorth = totalNetWorth(accounts, transactions);
+  const activeBal = selectedAccount
+    ? accountBalance(selectedAccount, transactions)
+    : netWorth;
+
+  const { net, trendPct } = monthNet(transactions, selectedAccountId ?? undefined);
+  const runway = runwayMonths(transactions, accounts, selectedAccountId ?? undefined);
+  const months = monthlyAgg(transactions, 6, selectedAccountId ?? undefined);
   const chartMax = Math.max(...months.flatMap((m) => [m.income, m.expense]), 1);
-  const recent = [...transactions]
+
+  // Filter recent transactions
+  const filteredTxns = selectedAccountId
+    ? transactions.filter((t) => t.accountId === selectedAccountId || t.transferAccountId === selectedAccountId)
+    : transactions;
+
+  const recent = [...filteredTxns]
     .filter((x) => x.label !== "Opening balance")
     .sort((a, b) => (a.date > b.date ? -1 : 1))
-    .slice(0, 8);
+    .slice(0, 10);
+
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
   return (
     <Hydrate>
-      <div className="space-y-5">
+      <div className="space-y-6">
+        {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[15px] text-muted">Every venture and your personal life, one clear picture.</p>
+          <div>
+            <p className="text-[15px] text-muted">Every account, card, and transaction in one clear picture.</p>
+          </div>
           <div className="flex items-center gap-3">
             <select
               className="bg-transparent text-[13px] font-medium text-muted outline-none cursor-pointer"
@@ -84,17 +118,136 @@ export default function MoneyPage() {
             </select>
             <button
               onClick={() => setCreating(true)}
-              className="btn-hero flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold"
+              className="btn-hero flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold shadow-sm"
             >
               <Plus className="h-4 w-4" /> Log transaction
             </button>
           </div>
         </div>
 
-        {/* Hero stats — all computed from your transactions */}
+        {/* ACCOUNTS & CARDS SECTION */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">
+                Accounts & Cards
+              </h2>
+              {selectedAccountId && (
+                <button
+                  onClick={() => setSelectedAccountId(null)}
+                  className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-medium text-accent hover:bg-surface-hover transition-colors"
+                >
+                  <FilterX className="h-3 w-3" /> Clear filter
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setAccountModal("new")}
+              className="flex items-center gap-1 text-[12px] font-medium text-accent hover:opacity-80 transition-opacity"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Account / Card
+            </button>
+          </div>
+
+          {/* Cards Carousel / Grid */}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Total Net Worth / All Accounts Card */}
+            <button
+              type="button"
+              onClick={() => setSelectedAccountId(null)}
+              className={`group relative flex flex-col justify-between overflow-hidden rounded-[20px] border p-4 text-left transition-all ${
+                selectedAccountId === null
+                  ? "border-accent bg-gradient-to-br from-surface-1 to-surface-2 shadow-md ring-2 ring-accent/30"
+                  : "border-border bg-surface hover:border-border-strong hover:bg-surface-2/60"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Total Net Worth
+                </span>
+                <div className="grid h-7 w-7 place-items-center rounded-lg bg-surface-2 text-text">
+                  <Building2 className="h-3.5 w-3.5" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-xl font-bold text-text tabular">
+                  {fmtMoney(netWorth, currency)}
+                </p>
+                <p className="text-[11px] text-faint mt-0.5">
+                  {accounts.length} active account{accounts.length === 1 ? "" : "s"}
+                </p>
+              </div>
+            </button>
+
+            {/* Individual Account Cards */}
+            {accounts.map((acc) => {
+              const isSelected = selectedAccountId === acc.id;
+              const theme = ACCOUNT_THEMES.find((t) => t.id === acc.color) || ACCOUNT_THEMES[0];
+              const accBal = accountBalance(acc, transactions);
+              const accCurr = acc.currency || currency;
+              const typeLabel = ACCOUNT_TYPES.find((t) => t.type === acc.type)?.label || "Account";
+
+              return (
+                <div
+                  key={acc.id}
+                  onClick={() => setSelectedAccountId(isSelected ? null : acc.id)}
+                  className={`group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-[20px] border p-4 text-white transition-all shadow-sm ${
+                    isSelected ? "ring-2 ring-white/90 scale-[1.02] shadow-lg" : "hover:brightness-105 hover:scale-[1.01]"
+                  } bg-gradient-to-br ${theme.bg} ${theme.border}`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-85">
+                      {typeLabel}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAccountModal(acc);
+                        }}
+                        aria-label="Edit account"
+                        className="grid h-6 w-6 place-items-center rounded-md bg-black/20 text-white/80 opacity-0 transition-opacity hover:bg-black/40 hover:text-white group-hover:opacity-100"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <div className="grid h-7 w-7 place-items-center rounded-lg bg-white/15 backdrop-blur-sm">
+                        <AccountIcon name={acc.icon} className="h-3.5 w-3.5 text-white" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <h3 className="text-sm font-semibold truncate text-white/95">
+                      {acc.name}
+                    </h3>
+                    <p className="text-lg font-bold tabular text-white mt-0.5">
+                      {fmtMoney(accBal, accCurr)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Quick Add Card if < 3 accounts */}
+            {accounts.length === 0 && (
+              <button
+                type="button"
+                onClick={() => setAccountModal("new")}
+                className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-border p-4 text-center text-muted transition-colors hover:border-accent hover:text-accent sm:col-span-2 lg:col-span-3"
+              >
+                <Plus className="h-5 w-5 mb-1 text-accent" />
+                <span className="text-[13px] font-semibold text-text">Add your first account or card</span>
+                <span className="text-[11px] text-faint mt-0.5">Track bank accounts, credit cards, or cash wallets automatically</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Hero stats — calculated for all or selected account */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <StatTile
-            label="Runway"
+            label={selectedAccount ? `${selectedAccount.name} Runway` : "Runway"}
             value={runway ?? "—"}
             unit={runway ? "months" : undefined}
             icon={<Wallet className="h-4 w-4" />}
@@ -102,14 +255,18 @@ export default function MoneyPage() {
             hero
           />
           <StatTile
-            label="Net this month"
+            label={selectedAccount ? `Net (${selectedAccount.name})` : "Net this month"}
             value={fmtMoney(net, currency)}
             icon={net >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
             accent={net >= 0 ? "var(--success)" : "var(--danger)"}
             delta={trendPct}
             hint={trendPct !== null ? "vs last month" : "first month"}
           />
-          <StatTile label="Balance" value={fmtMoney(bal, currency)} hint="all transactions" />
+          <StatTile
+            label={selectedAccount ? `${selectedAccount.name} Balance` : "Total Balance"}
+            value={fmtMoney(activeBal, selectedAccount?.currency || currency)}
+            hint={selectedAccount ? "starting balance + transactions" : "all accounts & transactions"}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -117,7 +274,7 @@ export default function MoneyPage() {
           <Card className="p-5 lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-faint">
-                Income vs expenses · 6 months
+                {selectedAccount ? `${selectedAccount.name} · ` : ""}Income vs expenses · 6 months
               </h2>
               <div className="flex items-center gap-3 text-[11px] text-muted">
                 <span className="flex items-center gap-1.5">
@@ -191,42 +348,78 @@ export default function MoneyPage() {
 
         {/* Transactions */}
         <Card className="p-5">
-          <SectionTitle>Recent transactions</SectionTitle>
+          <SectionTitle
+            action={
+              selectedAccountId ? (
+                <span className="text-[12px] text-muted">
+                  Showing transactions for <strong className="text-text">{selectedAccount?.name}</strong>
+                </span>
+              ) : undefined
+            }
+          >
+            Recent transactions
+          </SectionTitle>
           {recent.length === 0 ? (
             <p className="py-6 text-center text-[12px] text-faint">Nothing logged yet.</p>
           ) : (
             <div className="divide-y divide-border">
-              {recent.map((x) => (
-                <div key={x.id} className="group flex items-center gap-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-text">{x.label}</p>
-                    <p className="text-[11px] text-faint">
-                      {x.tag} · {relLabel(x.date)}
-                    </p>
+              {recent.map((x) => {
+                const isTransfer = Boolean(x.transferAccountId);
+                const fromAcc = x.accountId ? accountMap.get(x.accountId) : undefined;
+                const toAcc = x.transferAccountId ? accountMap.get(x.transferAccountId) : undefined;
+
+                return (
+                  <div key={x.id} className="group flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {isTransfer && <ArrowRightLeft className="h-3.5 w-3.5 text-accent shrink-0" />}
+                        <p className="truncate text-sm text-text font-medium">{x.label}</p>
+                      </div>
+                      <p className="text-[11px] text-faint mt-0.5">
+                        {x.tag} · {relLabel(x.date)}
+                        {fromAcc && !toAcc && ` · ${fromAcc.name}`}
+                        {fromAcc && toAcc && ` · ${fromAcc.name} → ${toAcc.name}`}
+                      </p>
+                    </div>
+                    <span
+                      className="tabular text-sm font-semibold"
+                      style={{
+                        color: isTransfer
+                          ? "var(--accent)"
+                          : x.amount >= 0
+                          ? "var(--success)"
+                          : "var(--text)",
+                      }}
+                    >
+                      {isTransfer ? "" : x.amount >= 0 ? "+" : ""}
+                      {fmtMoney(x.amount, currency)}
+                    </span>
+                    <button
+                      onClick={() => setEditing(x)}
+                      aria-label="Edit transaction"
+                      className="grid h-6 w-6 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-muted group-hover:opacity-100"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
                   </div>
-                  <span
-                    className="tabular text-sm font-semibold"
-                    style={{ color: x.amount >= 0 ? "var(--success)" : "var(--text)" }}
-                  >
-                    {x.amount >= 0 ? "+" : ""}
-                    {fmtMoney(x.amount, currency)}
-                  </span>
-                  <button
-                    onClick={() => setEditing(x)}
-                    aria-label="Edit transaction"
-                    className="grid h-6 w-6 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-muted group-hover:opacity-100"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
       </div>
 
-      <TxnForm open={creating} onClose={() => setCreating(false)} />
+      <TxnForm
+        open={creating}
+        onClose={() => setCreating(false)}
+        defaultAccountId={selectedAccountId ?? undefined}
+      />
       <TxnForm open={!!editing} onClose={() => setEditing(undefined)} txn={editing} />
+      <AccountModal
+        open={!!accountModal}
+        onClose={() => setAccountModal(undefined)}
+        account={accountModal === "new" || !accountModal ? undefined : accountModal}
+      />
       <SavingsModal target={savingsModal} onClose={() => setSavingsModal(undefined)} />
     </Hydrate>
   );

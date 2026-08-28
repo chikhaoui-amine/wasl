@@ -242,8 +242,21 @@ describe("Domain Validation Schemas (All 11 Active Stores)", () => {
   it("validates money state schema", () => {
     const validMoney = {
       currency: "TND",
+      accounts: [
+        {
+          id: "acc1",
+          name: "Main Checking",
+          type: "bank",
+          initialBalance: 5000,
+          currency: "TND",
+          color: "emerald",
+          icon: "landmark",
+          createdAt: "2026-08-01",
+        },
+      ],
       transactions: [
-        { id: "tx1", label: "Salary", amount: 3000, tag: "income", date: "2026-08-23" },
+        { id: "tx1", label: "Salary", amount: 3000, tag: "income", date: "2026-08-23", accountId: "acc1" },
+        { id: "tx2", label: "Transfer to Savings", amount: 500, tag: "Transfer", date: "2026-08-24", accountId: "acc1", transferAccountId: "acc2" },
       ],
       savings: [
         { id: "sg1", name: "Emergency Fund", current: 5000, target: 10000 },
@@ -251,6 +264,14 @@ describe("Domain Validation Schemas (All 11 Active Stores)", () => {
     };
     expect(MoneyStateSchema.safeParse(validMoney).success).toBe(true);
     expect(validateDomainStoreState("lifeos-money", validMoney).success).toBe(true);
+
+    // Also validates without accounts field (backward-compatibility default)
+    const legacyMoney = {
+      currency: "USD",
+      transactions: [{ id: "tx1", label: "Income", amount: 100, tag: "Salary", date: "2026-08-01" }],
+      savings: [],
+    };
+    expect(MoneyStateSchema.safeParse(legacyMoney).success).toBe(true);
   });
 
   it("validates recurring state schema", () => {

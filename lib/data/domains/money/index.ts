@@ -1,6 +1,10 @@
 export {
   createDefaultMoneyState,
+  normalizeMoneyState,
   setCurrencyOperation,
+  addAccountOperation,
+  updateAccountOperation,
+  deleteAccountOperation,
   addTxnOperation,
   updateTxnOperation,
   deleteTxnOperation,
@@ -14,6 +18,8 @@ export { useMoneyData } from "./hooks";
 
 export {
   fmtMoney,
+  accountBalance,
+  totalNetWorth,
   balance,
   monthlyAgg,
   monthNet,
@@ -21,9 +27,14 @@ export {
 } from "./utils";
 
 export {
+  ACCOUNT_TYPES,
+  ACCOUNT_COLORS,
   INCOME_TAGS,
   EXPENSE_TAGS,
   TXN_TAGS,
+  type Account,
+  type AccountType,
+  type AccountInput,
   type Txn,
   type TxnInput,
   type SavingsGoal,

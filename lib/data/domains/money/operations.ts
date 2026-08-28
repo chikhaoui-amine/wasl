@@ -1,6 +1,6 @@
 import { addDays, todayISO } from "@/lib/date";
 import type { MoneyPersistedState } from "../../types";
-import type { Txn, TxnInput, SavingsGoal } from "./types";
+import type { Txn, TxnInput, SavingsGoal, Account, AccountInput } from "./types";
 
 export function createDefaultMoneyState(): MoneyPersistedState {
   const t = todayISO();
@@ -11,6 +11,38 @@ export function createDefaultMoneyState(): MoneyPersistedState {
 
   return {
     currency: "$",
+    accounts: [
+      {
+        id: "acc-sample-1",
+        name: "Main Checking",
+        type: "bank",
+        initialBalance: 4500,
+        currency: "$",
+        color: "emerald",
+        icon: "landmark",
+        createdAt: d4,
+      },
+      {
+        id: "acc-sample-2",
+        name: "Visa Platinum",
+        type: "card",
+        initialBalance: 0,
+        currency: "$",
+        color: "indigo",
+        icon: "credit-card",
+        createdAt: d4,
+      },
+      {
+        id: "acc-sample-3",
+        name: "Cash Wallet",
+        type: "cash",
+        initialBalance: 350,
+        currency: "$",
+        color: "amber",
+        icon: "banknote",
+        createdAt: d4,
+      },
+    ],
     transactions: [
       {
         id: "txn-sample-1",
@@ -18,6 +50,7 @@ export function createDefaultMoneyState(): MoneyPersistedState {
         amount: 3200,
         tag: "Freelance",
         date: t,
+        accountId: "acc-sample-1",
       },
       {
         id: "txn-sample-2",
@@ -25,6 +58,7 @@ export function createDefaultMoneyState(): MoneyPersistedState {
         amount: -125.5,
         tag: "Food",
         date: d1,
+        accountId: "acc-sample-2",
       },
       {
         id: "txn-sample-3",
@@ -32,6 +66,7 @@ export function createDefaultMoneyState(): MoneyPersistedState {
         amount: -85,
         tag: "Health",
         date: d2,
+        accountId: "acc-sample-2",
       },
       {
         id: "txn-sample-4",
@@ -39,6 +74,7 @@ export function createDefaultMoneyState(): MoneyPersistedState {
         amount: -45,
         tag: "Tools",
         date: d3,
+        accountId: "acc-sample-2",
       },
       {
         id: "txn-sample-5",
@@ -46,6 +82,7 @@ export function createDefaultMoneyState(): MoneyPersistedState {
         amount: -500,
         tag: "Investment",
         date: d4,
+        accountId: "acc-sample-1",
       },
     ],
     savings: [
@@ -72,6 +109,7 @@ export function normalizeMoneyState(current: unknown): MoneyPersistedState {
   const s = current as Partial<MoneyPersistedState>;
   return {
     currency: typeof s.currency === "string" ? s.currency : "DA",
+    accounts: Array.isArray(s.accounts) ? s.accounts : [],
     transactions: Array.isArray(s.transactions) ? s.transactions : [],
     savings: Array.isArray(s.savings) ? s.savings : [],
   };
@@ -88,6 +126,56 @@ export function setCurrencyOperation(
   return {
     ...base,
     currency,
+  };
+}
+
+/**
+ * Pure operation to add an account.
+ */
+export function addAccountOperation(
+  current: MoneyPersistedState | null | undefined,
+  account: Account,
+): MoneyPersistedState {
+  const base = normalizeMoneyState(current);
+  return {
+    ...base,
+    accounts: [...base.accounts, account],
+  };
+}
+
+/**
+ * Pure operation to update an account.
+ */
+export function updateAccountOperation(
+  current: MoneyPersistedState | null | undefined,
+  id: string,
+  patch: Partial<AccountInput>,
+): MoneyPersistedState {
+  const base = normalizeMoneyState(current);
+  return {
+    ...base,
+    accounts: base.accounts.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+  };
+}
+
+/**
+ * Pure operation to delete an account.
+ * Also cleans up or decouples any transactions associated with this account.
+ */
+export function deleteAccountOperation(
+  current: MoneyPersistedState | null | undefined,
+  id: string,
+): MoneyPersistedState {
+  const base = normalizeMoneyState(current);
+  return {
+    ...base,
+    accounts: base.accounts.filter((a) => a.id !== id),
+    transactions: base.transactions.map((t) => {
+      let updated = t;
+      if (t.accountId === id) updated = { ...updated, accountId: undefined };
+      if (t.transferAccountId === id) updated = { ...updated, transferAccountId: undefined };
+      return updated;
+    }),
   };
 }
 

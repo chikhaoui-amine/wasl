@@ -35,7 +35,7 @@ describe("Store Registry", () => {
     expect(getStoreVersion("lifeos-blocks")).toBe(3);
     expect(getStoreVersion("lifeos-journal")).toBe(2);
     expect(getStoreVersion("lifeos-habits")).toBe(4);
-    expect(getStoreVersion("lifeos-money")).toBe(3);
+    expect(getStoreVersion("lifeos-money")).toBe(4);
     expect(getStoreVersion("lifeos-recurring")).toBe(1);
   });
 

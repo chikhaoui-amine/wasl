@@ -55,9 +55,10 @@ export function extractStoreEntities(store: StoreKey, state: unknown): EntityRec
     case "lifeos-journal":
       return Array.isArray(s.entries) ? (s.entries as EntityRecord[]) : [];
     case "lifeos-money": {
+      const accounts = Array.isArray(s.accounts) ? (s.accounts as EntityRecord[]) : [];
       const txns = Array.isArray(s.transactions) ? (s.transactions as EntityRecord[]) : [];
       const savings = Array.isArray(s.savings) ? (s.savings as EntityRecord[]) : [];
-      return [...txns, ...savings];
+      return [...accounts, ...txns, ...savings];
     }
     case "lifeos-health": {
       const workouts = Array.isArray(s.workouts) ? (s.workouts as EntityRecord[]) : [];
@@ -118,6 +119,11 @@ function filterStoreStateByEntityIds(
       }
       break;
     case "lifeos-money":
+      if (Array.isArray(state.accounts)) {
+        filtered.accounts = state.accounts.filter(
+          (a: EntityRecord) => a.id && selectedIds.has(a.id),
+        );
+      }
       if (Array.isArray(state.transactions)) {
         filtered.transactions = state.transactions.filter(
           (t: EntityRecord) => t.id && selectedIds.has(t.id),
@@ -652,6 +658,11 @@ export async function importWaslTransfer(
           break;
         }
         case "lifeos-money": {
+          const accRes = mergeEntityArrays(
+            Array.isArray(current.accounts) ? (current.accounts as EntityRecord[]) : [],
+            Array.isArray(incoming.accounts) ? (incoming.accounts as EntityRecord[]) : [],
+            strategy,
+          );
           const txnRes = mergeEntityArrays(
             Array.isArray(current.transactions) ? (current.transactions as EntityRecord[]) : [],
             Array.isArray(incoming.transactions) ? (incoming.transactions as EntityRecord[]) : [],
@@ -662,13 +673,14 @@ export async function importWaslTransfer(
             Array.isArray(incoming.savings) ? (incoming.savings as EntityRecord[]) : [],
             strategy,
           );
+          nextState.accounts = accRes.merged;
           nextState.transactions = txnRes.merged;
           nextState.savings = savRes.merged;
           nextState.currency = incoming.currency || current.currency || "USD";
-          storeImported = txnRes.imported + savRes.imported;
-          storeSkipped = txnRes.skipped + savRes.skipped;
-          storeReplaced = txnRes.replaced + savRes.replaced;
-          storeCopied = txnRes.copied + savRes.copied;
+          storeImported = accRes.imported + txnRes.imported + savRes.imported;
+          storeSkipped = accRes.skipped + txnRes.skipped + savRes.skipped;
+          storeReplaced = accRes.replaced + txnRes.replaced + savRes.replaced;
+          storeCopied = accRes.copied + txnRes.copied + savRes.copied;
           break;
         }
         case "lifeos-health": {

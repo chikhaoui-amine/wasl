@@ -12,7 +12,7 @@ export const STORE_REGISTRY = {
   "lifeos-blocks": { version: 3, name: "Time Blocks", description: "Time-blocking schedule and daily segments" },
   "lifeos-journal": { version: 2, name: "Journal", description: "Daily journal entries, prompts, and reflections" },
   "lifeos-habits": { version: 4, name: "Habits", description: "Habit streaks, targets, colors, and weekly logs" },
-  "lifeos-money": { version: 3, name: "Money", description: "Transactions, recurring expenses, and accounts" },
+  "lifeos-money": { version: 4, name: "Money", description: "Transactions, recurring expenses, and accounts" },
   "lifeos-recurring": { version: 1, name: "Recurring Tasks", description: "Recurring task templates and cadence" },
 } as const;
 

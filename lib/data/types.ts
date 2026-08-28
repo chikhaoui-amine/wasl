@@ -14,7 +14,7 @@ import type { DailyFocus } from "@/lib/tasks/focus";
 import type { Block } from "./domains/blocks";
 import type { JournalEntry } from "./domains/journal";
 import type { Habit } from "./domains/habits";
-import type { Txn, SavingsGoal } from "./domains/money";
+import type { Txn, SavingsGoal, Account } from "./domains/money";
 import type { RecurringTask } from "./domains/recurring";
 
 /**
@@ -95,6 +95,7 @@ export interface HabitsPersistedState {
  */
 export interface MoneyPersistedState {
   currency: string;
+  accounts: Account[];
   transactions: Txn[];
   savings: SavingsGoal[];
 }

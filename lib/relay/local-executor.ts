@@ -23,7 +23,7 @@ import { normalizeHabit } from "@/lib/data/domains/habits/operations";
 import type { Habit } from "@/lib/data/domains/habits/types";
 import { moveToTrashOperation, restoreItemOperation, type TrashItem } from "@/lib/data/domains/trash/operations";
 import type { Mood, JournalEntry } from "@/lib/data/domains/journal/types";
-import type { Txn } from "@/lib/data/domains/money/types";
+import type { Txn, Account, AccountType } from "@/lib/data/domains/money/types";
 import type { Workout } from "@/lib/data/domains/health/types";
 import {
   type McpClientProfile,
@@ -652,18 +652,89 @@ export class LocalMcpExecutor {
       case "get_money": {
         const moneyDoc = await this.adapter.getStore("lifeos-money");
         return {
+          accounts: moneyDoc?.state.accounts ?? [],
           transactions: moneyDoc?.state.transactions ?? [],
+          savings: moneyDoc?.state.savings ?? [],
           currency: moneyDoc?.state.currency ?? "DA",
         };
       }
 
+      case "add_money_account": {
+        const newAccount: Account = {
+          id: crypto.randomUUID(),
+          name: String(args.name || "New Account"),
+          type: (args.type as AccountType) || "bank",
+          initialBalance: Number(args.initialBalance ?? 0),
+          currency: typeof args.currency === "string" ? args.currency : undefined,
+          color: typeof args.color === "string" ? args.color : "emerald",
+          icon: typeof args.icon === "string" ? args.icon : "landmark",
+          createdAt: todayISO(),
+        };
+
+        await this.adapter.mutateStore("lifeos-money", (current) => ({
+          ...current,
+          accounts: [...(current.accounts ?? []), newAccount],
+        }));
+
+        return { success: true, account: newAccount };
+      }
+
+      case "update_money_account": {
+        const targetId = String(args.id);
+        let updatedAccount: Account | null = null;
+        await this.adapter.mutateStore("lifeos-money", (current) => {
+          const accounts = current.accounts ?? [];
+          const updated = accounts.map((a: Account) => {
+            if (a.id === targetId || a.name.toLowerCase() === targetId.toLowerCase()) {
+              updatedAccount = {
+                ...a,
+                ...(args.name !== undefined ? { name: String(args.name) } : {}),
+                ...(args.type !== undefined ? { type: args.type as AccountType } : {}),
+                ...(args.initialBalance !== undefined ? { initialBalance: Number(args.initialBalance) } : {}),
+                ...(args.currency !== undefined ? { currency: String(args.currency) } : {}),
+                ...(args.color !== undefined ? { color: String(args.color) } : {}),
+                ...(args.icon !== undefined ? { icon: String(args.icon) } : {}),
+              };
+              return updatedAccount;
+            }
+            return a;
+          });
+          return { ...current, accounts: updated };
+        });
+        if (!updatedAccount) throw new Error(`Account '${targetId}' not found.`);
+        return { success: true, account: updatedAccount };
+      }
+
+      case "delete_money_account": {
+        const targetId = String(args.id);
+        let deletedId: string | null = null;
+        await this.adapter.mutateStore("lifeos-money", (current) => {
+          const accounts = current.accounts ?? [];
+          const match = accounts.find((a: Account) => a.id === targetId || a.name.toLowerCase() === targetId.toLowerCase());
+          if (!match) return current;
+          deletedId = match.id;
+          return {
+            ...current,
+            accounts: accounts.filter((a: Account) => a.id !== deletedId),
+          };
+        });
+        if (!deletedId) throw new Error(`Account '${targetId}' not found.`);
+        return { success: true, id: deletedId };
+      }
+
       case "add_money_transaction": {
+        let amount = Number(args.amount ?? 0);
+        if (args.type === "expense") amount = -Math.abs(amount);
+        else if (args.type === "income") amount = Math.abs(amount);
+
         const newTx: Txn = {
           id: crypto.randomUUID(),
-          label: typeof args.description === "string" && args.description ? args.description : "Transaction",
-          amount: Number(args.amount ?? 0),
+          label: typeof args.description === "string" && args.description ? args.description : (args.type === "income" ? "Income" : "Expense"),
+          amount,
           tag: String(args.category ?? "Personal"),
           date: String(args.date ?? todayISO()),
+          accountId: typeof args.accountId === "string" ? args.accountId : undefined,
+          transferAccountId: typeof args.transferAccountId === "string" ? args.transferAccountId : undefined,
         };
 
         await this.adapter.mutateStore("lifeos-money", (current) => ({
@@ -672,6 +743,25 @@ export class LocalMcpExecutor {
         }));
 
         return { success: true, transaction: newTx };
+      }
+
+      case "transfer_money": {
+        const transferTx: Txn = {
+          id: crypto.randomUUID(),
+          label: typeof args.description === "string" && args.description ? args.description : "Account Transfer",
+          amount: Math.abs(Number(args.amount ?? 0)),
+          tag: "Transfer",
+          date: String(args.date ?? todayISO()),
+          accountId: String(args.fromAccountId),
+          transferAccountId: String(args.toAccountId),
+        };
+
+        await this.adapter.mutateStore("lifeos-money", (current) => ({
+          ...current,
+          transactions: [transferTx, ...(current.transactions ?? [])],
+        }));
+
+        return { success: true, transaction: transferTx };
       }
 
       // ---------------------------------------------------------------------

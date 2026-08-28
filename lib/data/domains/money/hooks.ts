@@ -10,9 +10,13 @@ import {
 } from "../../query/provider";
 import { queryKeys } from "../../query/keys";
 import { useSerializedMutations } from "../../query/mutation-queue";
+import { todayISO } from "@/lib/date";
 import {
   createDefaultMoneyState,
   setCurrencyOperation,
+  addAccountOperation,
+  updateAccountOperation,
+  deleteAccountOperation,
   addTxnOperation,
   updateTxnOperation,
   deleteTxnOperation,
@@ -21,7 +25,7 @@ import {
   addToSavingsOperation,
   deleteSavingsOperation,
 } from "./operations";
-import type { Txn, TxnInput, SavingsGoal } from "./types";
+import type { Txn, TxnInput, SavingsGoal, Account, AccountInput } from "./types";
 
 export function useMoneyData() {
   const adapter = useDataAdapter();
@@ -62,6 +66,24 @@ export function useMoneyData() {
     await mutation.mutateAsync((current) => setCurrencyOperation(current, currency));
   };
 
+  const addAccount = async (input: AccountInput): Promise<Account> => {
+    const newAccount: Account = {
+      id: crypto.randomUUID(),
+      createdAt: todayISO(),
+      ...input,
+    };
+    await mutation.mutateAsync((current) => addAccountOperation(current, newAccount));
+    return newAccount;
+  };
+
+  const updateAccount = async (id: string, patch: Partial<AccountInput>): Promise<void> => {
+    await mutation.mutateAsync((current) => updateAccountOperation(current, id, patch));
+  };
+
+  const deleteAccount = async (id: string): Promise<void> => {
+    await mutation.mutateAsync((current) => deleteAccountOperation(current, id));
+  };
+
   const addTxn = async (input: TxnInput): Promise<Txn> => {
     const newTxn: Txn = {
       id: crypto.randomUUID(),
@@ -69,6 +91,26 @@ export function useMoneyData() {
     };
     await mutation.mutateAsync((current) => addTxnOperation(current, newTxn));
     return newTxn;
+  };
+
+  const transferMoney = async (
+    fromAccountId: string,
+    toAccountId: string,
+    amount: number,
+    label: string = "Account Transfer",
+    date: string = todayISO(),
+  ): Promise<Txn> => {
+    const transferTxn: Txn = {
+      id: crypto.randomUUID(),
+      label,
+      amount: Math.abs(amount),
+      tag: "Transfer",
+      date,
+      accountId: fromAccountId,
+      transferAccountId: toAccountId,
+    };
+    await mutation.mutateAsync((current) => addTxnOperation(current, transferTxn));
+    return transferTxn;
   };
 
   const updateTxn = async (id: string, patch: Partial<TxnInput>): Promise<void> => {
@@ -106,11 +148,13 @@ export function useMoneyData() {
   };
 
   const currency = query.data?.currency ?? "DA";
+  const accounts = query.data?.accounts ?? [];
   const transactions = query.data?.transactions ?? [];
   const savings = query.data?.savings ?? [];
 
   return {
     currency,
+    accounts,
     transactions,
     savings,
     isLoading: query.isLoading,
@@ -118,6 +162,10 @@ export function useMoneyData() {
     error: query.error,
     isMutating: mutation.isPending,
     setCurrency,
+    addAccount,
+    updateAccount,
+    deleteAccount,
+    transferMoney,
     addTxn,
     updateTxn,
     deleteTxn,

@@ -251,10 +251,42 @@ export const WASL_TOOLS: ToolDefinition[] = [
   },
   {
     name: "get_money",
-    description: "Fetch finance accounts and transactions from WASL Local (requires Money permission).",
+    description: "Fetch finance accounts, savings, and transactions from WASL Local (requires Money permission).",
     schema: z.object({
       from: z.string().optional().describe("Start date"),
       to: z.string().optional().describe("End date"),
+    }),
+  },
+  {
+    name: "add_money_account",
+    description: "Add a financial account or card in WASL Local.",
+    schema: z.object({
+      name: z.string().describe("Account name (e.g. Main Checking, Visa Card, Cash)"),
+      type: z.enum(["bank", "card", "cash", "savings", "investment", "wallet"]).describe("Account type"),
+      initialBalance: z.number().optional().describe("Starting balance (default 0)"),
+      currency: z.string().optional().describe("Currency code"),
+      color: z.string().optional().describe("Color theme (e.g. emerald, blue, indigo, purple, amber, rose, slate)"),
+      icon: z.string().optional().describe("Icon preset"),
+    }),
+  },
+  {
+    name: "update_money_account",
+    description: "Update a financial account or card in WASL Local.",
+    schema: z.object({
+      id: z.string().describe("Account ID or unique name"),
+      name: z.string().optional(),
+      type: z.enum(["bank", "card", "cash", "savings", "investment", "wallet"]).optional(),
+      initialBalance: z.number().optional(),
+      currency: z.string().optional(),
+      color: z.string().optional(),
+      icon: z.string().optional(),
+    }),
+  },
+  {
+    name: "delete_money_account",
+    description: "Delete a financial account or card in WASL Local.",
+    schema: z.object({
+      id: z.string().describe("Account ID or unique name to delete"),
     }),
   },
   {
@@ -266,8 +298,20 @@ export const WASL_TOOLS: ToolDefinition[] = [
       category: z.string().describe("Transaction category"),
       date: z.string().describe("Transaction date (YYYY-MM-DD)"),
       description: z.string().optional(),
-      accountId: z.string().optional(),
+      accountId: z.string().optional().describe("Source account ID"),
+      transferAccountId: z.string().optional().describe("Destination account ID if transfer"),
       idempotencyKey: z.string().optional(),
+    }),
+  },
+  {
+    name: "transfer_money",
+    description: "Transfer money between two accounts in WASL Local.",
+    schema: z.object({
+      fromAccountId: z.string().describe("Source account ID"),
+      toAccountId: z.string().describe("Destination account ID"),
+      amount: z.number().positive().describe("Amount to transfer"),
+      description: z.string().optional().describe("Transfer note/label"),
+      date: z.string().optional().describe("ISO date (YYYY-MM-DD)"),
     }),
   },
   {

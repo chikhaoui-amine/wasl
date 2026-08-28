@@ -232,7 +232,7 @@ describe("LocalAdapter (Dexie / IndexedDB)", () => {
     await adapter.putStore({
       store: "lifeos-money",
       version: getStoreVersion("lifeos-money"),
-      state: { currency: "USD", transactions: [], savings: [] },
+      state: { accounts: [], currency: "USD", transactions: [], savings: [] },
       updatedAt: new Date().toISOString(),
     });
 

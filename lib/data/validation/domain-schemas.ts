@@ -449,8 +449,19 @@ export const HabitsStateSchema = z.object({
 });
 
 // ============================================================
-// 10. MONEY DOMAIN SCHEMA (lifeos-money)
-// ============================================================
+export const AccountTypeSchema = z.enum(["bank", "card", "cash", "savings", "investment", "wallet"]);
+
+export const AccountSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  type: AccountTypeSchema,
+  initialBalance: z.number(),
+  currency: z.string().optional(),
+  color: z.string().optional(),
+  icon: z.string().optional(),
+  createdAt: z.string(),
+  isArchived: z.boolean().optional(),
+});
 
 export const TxnSchema = z.object({
   id: z.string().min(1),
@@ -458,6 +469,8 @@ export const TxnSchema = z.object({
   amount: z.number(),
   tag: z.string(),
   date: z.string(),
+  accountId: z.string().optional(),
+  transferAccountId: z.string().optional(),
 });
 
 export const SavingsGoalSchema = z.object({
@@ -469,6 +482,7 @@ export const SavingsGoalSchema = z.object({
 
 export const MoneyStateSchema = z.object({
   currency: z.string(),
+  accounts: z.array(AccountSchema).optional().default([]),
   transactions: z.array(TxnSchema),
   savings: z.array(SavingsGoalSchema),
 });
