@@ -93,7 +93,7 @@ function TaskFormInner({
           </select>
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
           <Field label="Due date">
             <input type="date" className={inputCls} value={due} onChange={(e) => setDue(e.target.value)} />
           </Field>
@@ -110,25 +110,25 @@ function TaskFormInner({
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-border px-3 py-2.5">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <label className="flex cursor-pointer items-center gap-2 rounded-[10px] border border-border px-2.5 sm:px-3 py-2 sm:py-2.5">
             <input
               type="checkbox"
               checked={today}
               onChange={(e) => setToday(e.target.checked)}
               className="h-4 w-4 accent-[var(--accent)]"
             />
-            <span className="text-[13px] text-text">Do today</span>
+            <span className="text-[12.5px] sm:text-[13px] text-text">Do today</span>
           </label>
 
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-border px-3 py-2.5">
+          <label className="flex cursor-pointer items-center gap-2 rounded-[10px] border border-border px-2.5 sm:px-3 py-2 sm:py-2.5">
             <input
               type="checkbox"
               checked={weekly}
               onChange={(e) => setWeekly(e.target.checked)}
               className="h-4 w-4 accent-[var(--accent)]"
             />
-            <span className="text-[13px] text-text">Weekly Task</span>
+            <span className="text-[12.5px] sm:text-[13px] text-text">Weekly Task</span>
           </label>
         </div>
 

@@ -69,7 +69,7 @@ function PaletteContent() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-4 pt-[12vh] backdrop-blur-md"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 p-3 sm:p-4 pt-[6vh] sm:pt-[12vh] backdrop-blur-md"
       onClick={() => setCommandOpen(false)}
     >
       <motion.div
@@ -81,20 +81,20 @@ function PaletteContent() {
         exit={{ opacity: 0, y: -8, scale: 0.96 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="card-glass w-full max-w-xl overflow-hidden rounded-[24px] shadow-float"
+        className="card-glass w-full max-w-xl overflow-hidden rounded-[20px] sm:rounded-[24px] shadow-float"
       >
         <Command
           loop
-          className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.16em] [&_[cmdk-group-heading]]:text-faint"
+          className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 sm:[&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.16em] [&_[cmdk-group-heading]]:text-faint"
         >
-          <div className="border-b border-border px-4">
+          <div className="border-b border-border px-3.5 sm:px-4">
             <Command.Input
               autoFocus
               placeholder="Search tasks, notes, projects — or jump anywhere…"
-              className="h-14 w-full bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
+              className="h-11 sm:h-14 w-full bg-transparent text-sm sm:text-[15px] text-text outline-none placeholder:text-faint"
             />
           </div>
-          <Command.List className="max-h-[52vh] overflow-y-auto p-2">
+          <Command.List className="max-h-[58vh] sm:max-h-[52vh] overflow-y-auto p-1.5 sm:p-2">
             <Command.Empty className="py-8 text-center text-sm text-faint">
               Nothing found.
             </Command.Empty>
@@ -200,11 +200,11 @@ function PaletteContent() {
             </Command.Group>
           </Command.List>
 
-          <div className="flex items-center gap-3 border-t border-border px-4 py-2.5 text-[11px] text-faint">
+          <div className="flex items-center gap-2 sm:gap-3 border-t border-border px-3.5 sm:px-4 py-2 sm:py-2.5 text-[10.5px] sm:text-[11px] text-faint">
             <span className="flex items-center gap-1">
               <CornerDownLeft className="h-3 w-3" /> select
             </span>
-            <span>↑↓ navigate</span>
+            <span className="hidden xs:inline">↑↓ navigate</span>
             <span className="ml-auto">esc to close</span>
           </div>
         </Command>

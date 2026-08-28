@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import { ICON_MAP, getIconComponent, type IconKey } from "@/lib/icons";
+import { getIconComponent, type IconKey } from "@/lib/icons";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -146,7 +146,7 @@ function ModalInner({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-3 pt-[2.5vh] sm:p-4 sm:pt-[6vh] backdrop-blur-md"
+      className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-2.5 pt-[2vh] sm:p-4 sm:pt-[6vh] backdrop-blur-md"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}
       onClick={() => {
         if (!preventBackdropClose) {
@@ -167,8 +167,8 @@ function ModalInner({
         onClick={(e) => e.stopPropagation()}
         className={`w-full ${widthClass} card-glass rounded-[20px] sm:rounded-[24px] shadow-float relative outline-none`}
       >
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5 sm:py-3.5">
-          <h2 className="font-display text-[15px] sm:text-[16px] font-semibold text-text">{title}</h2>
+        <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5 sm:px-5 sm:py-3.5">
+          <h2 className="font-display text-[14.5px] sm:text-[16px] font-semibold text-text">{title}</h2>
           <button
             type="button"
             onClick={handleAttemptClose}
@@ -178,7 +178,7 @@ function ModalInner({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-4 sm:p-5">{children}</div>
+        <div className="p-3.5 sm:p-5">{children}</div>
 
         {/* Unsaved Changes Safety Confirmation Overlay */}
         {showConfirmDiscard && (

@@ -42,14 +42,14 @@ export function MonthlyFocusSection() {
   return (
     <section className="space-y-2.5">
       {/* Section Header with Month Switcher */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/15 text-accent">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/15 text-accent shrink-0">
             <Target className="h-3.5 w-3.5" />
           </div>
 
           {/* Month Switcher Pill (< Month >) */}
-          <div className="flex items-center gap-1 bg-surface-2 rounded-full px-2 py-1 border border-border/60 shadow-xs">
+          <div className="flex items-center gap-1 bg-surface-2 rounded-full px-2 py-0.5 sm:py-1 border border-border/60 shadow-xs">
             <button
               onClick={handlePrevMonth}
               className="p-0.5 text-faint hover:text-text rounded-full hover:bg-surface-3 transition-colors"
@@ -57,7 +57,7 @@ export function MonthlyFocusSection() {
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            <span className="text-xs font-bold text-text px-1 select-none">
+            <span className="text-[11px] sm:text-xs font-bold text-text px-1 select-none">
               {monthName} {year !== currentYear ? year : ""}
             </span>
             <button
@@ -69,7 +69,7 @@ export function MonthlyFocusSection() {
             </button>
           </div>
 
-          <span className="tabular rounded-pill bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">
+          <span className="tabular rounded-pill bg-surface-2 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-muted">
             {monthlyOutcomes.length}/5
           </span>
         </div>
@@ -81,7 +81,7 @@ export function MonthlyFocusSection() {
           }}
           disabled={maxReached}
           className={cn(
-            "flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-semibold transition-all",
+            "flex items-center gap-1 rounded-full px-2.5 sm:px-3 py-1 text-[11px] sm:text-[12px] font-semibold transition-all shrink-0",
             maxReached
               ? "opacity-50 cursor-not-allowed bg-surface-2 text-faint"
               : "bg-surface-2 text-muted hover:bg-surface-3 hover:text-text",

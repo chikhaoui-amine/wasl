@@ -98,13 +98,13 @@ export default function MoneyPage() {
     <Hydrate>
       <div className="space-y-6">
         {/* Top Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
           <div>
-            <p className="text-[15px] text-muted">Every account, card, and transaction in one clear picture.</p>
+            <p className="text-[13.5px] sm:text-[15px] text-muted">Every account, card, and transaction in one clear picture.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3">
             <select
-              className="bg-transparent text-[13px] font-medium text-muted outline-none cursor-pointer"
+              className="bg-surface-2/80 rounded-lg px-2.5 py-1 text-xs sm:text-[13px] font-medium text-muted outline-none cursor-pointer border border-border/60"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
               title="Currency"
@@ -118,7 +118,7 @@ export default function MoneyPage() {
             </select>
             <button
               onClick={() => setCreating(true)}
-              className="btn-hero flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold shadow-sm"
+              className="btn-hero flex items-center gap-1.5 rounded-full px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold shadow-sm shrink-0"
             >
               <Plus className="h-4 w-4" /> Log transaction
             </button>
@@ -245,7 +245,7 @@ export default function MoneyPage() {
         </div>
 
         {/* Hero stats — calculated for all or selected account */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1 lg:[&>*:last-child]:col-span-1">
           <StatTile
             label={selectedAccount ? `${selectedAccount.name} Runway` : "Runway"}
             value={runway ?? "—"}

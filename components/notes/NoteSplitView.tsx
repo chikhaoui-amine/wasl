@@ -245,11 +245,11 @@ export function NoteSplitView({
   const readTimeMin = Math.max(1, Math.ceil(words / 200));
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-210px)] min-h-[550px] overflow-hidden rounded-2xl border border-border/80 bg-surface-1/60 backdrop-blur-md">
+    <div className="flex flex-col lg:flex-row gap-0 sm:gap-4 h-[calc(100vh-210px)] min-h-[520px] overflow-hidden rounded-2xl border border-border/80 bg-surface-1/60 backdrop-blur-md">
       {/* Left Column: Note Feed List (Title-Only) */}
-      <div className="w-full lg:w-80 lg:min-w-[320px] flex flex-col border-b lg:border-b-0 lg:border-r border-border/60 bg-surface-1/80 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 bg-surface-2/30">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted">
+      <div className="w-full lg:w-80 lg:min-w-[320px] max-h-40 sm:max-h-56 lg:max-h-none flex flex-col border-b lg:border-b-0 lg:border-r border-border/60 bg-surface-1/80 overflow-hidden shrink-0">
+        <div className="flex items-center justify-between border-b border-border/60 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-surface-2/30">
+          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-muted">
             All Items ({notes.length})
           </span>
           <button

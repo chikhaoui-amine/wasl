@@ -134,20 +134,20 @@ export default function TasksPage() {
         <MonthlyFocusSection />
 
         {/* Tab bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex gap-0.5 rounded-[12px] sm:rounded-[14px] bg-surface-2 p-0.5 sm:p-1 overflow-x-auto scrollbar-none">
             {(
               [
-                { key: "tasks" as TabKey, label: "Daily Tasks", count: activeDailyCount },
-                { key: "weekly" as TabKey, label: "Weekly Tasks", count: activeWeekly.length },
-                { key: "recurring" as TabKey, label: "Recurring", count: recurring.length },
+                { key: "tasks" as TabKey, label: "Daily Tasks", shortLabel: "Daily", count: activeDailyCount },
+                { key: "weekly" as TabKey, label: "Weekly Tasks", shortLabel: "Weekly", count: activeWeekly.length },
+                { key: "recurring" as TabKey, label: "Recurring", shortLabel: "Recurring", count: recurring.length },
               ]
             ).map((tb) => (
               <button
                 key={tb.key}
                 onClick={() => setTab(tb.key)}
                 className={cn(
-                  "flex items-center gap-1 sm:gap-1.5 rounded-[8px] sm:rounded-[10px] px-2.5 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-[13px] font-semibold transition-all shrink-0",
+                  "flex items-center gap-1 sm:gap-1.5 rounded-[8px] sm:rounded-[10px] px-2 sm:px-3.5 py-1.5 sm:py-2 text-[11.5px] sm:text-[13px] font-semibold transition-all shrink-0",
                   tab === tb.key
                     ? "bg-surface text-text shadow-sm"
                     : "text-faint hover:text-muted",
@@ -155,9 +155,10 @@ export default function TasksPage() {
               >
                 {tb.key === "weekly" && <CalendarDays className="h-3.5 w-3.5 text-accent" />}
                 {tb.key === "recurring" && <Repeat className="h-3.5 w-3.5" />}
-                {tb.label}
+                <span className="sm:hidden">{tb.shortLabel}</span>
+                <span className="hidden sm:inline">{tb.label}</span>
                 {tb.count > 0 && (
-                  <span className="tabular rounded-pill bg-surface-2 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-faint">
+                  <span className="tabular rounded-pill bg-surface-2 px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-faint">
                     {tb.count}
                   </span>
                 )}
@@ -171,10 +172,13 @@ export default function TasksPage() {
               else if (tab === "tasks") setCreating(true);
               else setCreatingRecurring(true);
             }}
-            className="btn-hero flex items-center gap-1 sm:gap-1.5 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-[13px] font-semibold shrink-0"
+            className="btn-hero flex items-center gap-1 sm:gap-1.5 rounded-full px-2.5 sm:px-4 py-1.5 sm:py-2 text-[11.5px] sm:text-[13px] font-semibold shrink-0"
           >
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{" "}
-            {tab === "weekly" ? "New weekly" : tab === "tasks" ? "New task" : "New recurring"}
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">
+              {tab === "weekly" ? "New weekly" : tab === "tasks" ? "New task" : "New recurring"}
+            </span>
           </button>
         </div>
 

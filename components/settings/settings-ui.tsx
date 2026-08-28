@@ -33,18 +33,18 @@ export function SettingsSection({
   return (
     <section
       className={cn(
-        "card space-y-4 p-5 sm:p-6",
+        "card space-y-4 p-4 sm:p-6",
         tone === "danger" && "border-danger/30",
         className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
+        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
           {icon && (
             <span
               aria-hidden
               className={cn(
-                "grid h-8 w-8 shrink-0 place-items-center rounded-[10px]",
+                "grid h-7.5 w-7.5 sm:h-8 sm:w-8 shrink-0 place-items-center rounded-[10px]",
                 tone === "danger" ? "bg-danger/10 text-danger" : "bg-accent-soft text-accent",
               )}
             >
@@ -52,9 +52,9 @@ export function SettingsSection({
             </span>
           )}
           <div className="min-w-0">
-            <h2 className="text-[15px] font-semibold leading-tight text-text">{title}</h2>
+            <h2 className="text-[14px] sm:text-[15px] font-semibold leading-tight text-text">{title}</h2>
             {description && (
-              <p className="mt-1 max-w-prose text-[12.5px] leading-relaxed text-faint">{description}</p>
+              <p className="mt-1 max-w-prose text-[12px] sm:text-[12.5px] leading-relaxed text-faint">{description}</p>
             )}
           </div>
         </div>
@@ -81,7 +81,7 @@ export function SettingsRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 rounded-[12px] border border-border/70 bg-surface-2/40 px-3.5 py-3",
+        "flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 rounded-[12px] border border-border/70 bg-surface-2/40 px-3.5 py-3",
         className,
       )}
     >
@@ -89,7 +89,7 @@ export function SettingsRow({
         <p className="text-[13px] font-medium text-text">{label}</p>
         {sublabel && <p className="mt-0.5 text-[11.5px] leading-relaxed text-faint">{sublabel}</p>}
       </div>
-      {control && <div className="flex shrink-0 items-center gap-2">{control}</div>}
+      {control && <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">{control}</div>}
     </div>
   );
 }
@@ -107,7 +107,7 @@ export function SettingsTabs<T extends string>({
     <div
       role="tablist"
       aria-label="Settings sections"
-      className="flex gap-1.5 overflow-x-auto py-1"
+      className="flex gap-1.5 overflow-x-auto py-1 scrollbar-none"
     >
       {tabs.map((t) => {
         const active = t.id === value;

@@ -68,15 +68,15 @@ export default function CalendarPage() {
     <Hydrate>
       <div className="space-y-4">
         {/* toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <div className="flex gap-0.5 rounded-pill bg-surface-2 p-0.5">
               {(["week", "day"] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => setView(v)}
                   className={cn(
-                    "rounded-pill px-3 py-1 text-[12px] font-medium capitalize transition-colors",
+                    "rounded-pill px-2.5 sm:px-3 py-1 text-[11px] sm:text-[12px] font-medium capitalize transition-colors",
                     view === v ? "bg-surface text-text shadow-sm" : "text-faint hover:text-muted",
                   )}
                 >
@@ -86,17 +86,17 @@ export default function CalendarPage() {
             </div>
 
             <div className="flex items-center gap-0.5">
-              <button onClick={() => shift(-1)} aria-label="Previous" className="grid h-8 w-8 place-items-center rounded-[8px] border border-border text-muted hover:bg-surface-hover">
-                <ChevronLeft className="h-4 w-4" />
+              <button onClick={() => shift(-1)} aria-label="Previous" className="grid h-7.5 w-7.5 sm:h-8 sm:w-8 place-items-center rounded-[8px] border border-border text-muted hover:bg-surface-hover">
+                <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
               <button
                 onClick={() => setAnchor(view === "week" ? currentWeekStart : t)}
-                className="rounded-[8px] border border-border px-3 py-1.5 text-[12px] font-medium text-muted transition-colors hover:bg-surface-hover hover:text-text"
+                className="rounded-[8px] border border-border px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-[12px] font-medium text-muted transition-colors hover:bg-surface-hover hover:text-text"
               >
                 Today
               </button>
-              <button onClick={() => shift(1)} aria-label="Next" className="grid h-8 w-8 place-items-center rounded-[8px] border border-border text-muted hover:bg-surface-hover">
-                <ChevronRight className="h-4 w-4" />
+              <button onClick={() => shift(1)} aria-label="Next" className="grid h-7.5 w-7.5 sm:h-8 sm:w-8 place-items-center rounded-[8px] border border-border text-muted hover:bg-surface-hover">
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             </div>
 
@@ -105,9 +105,9 @@ export default function CalendarPage() {
 
           <button
             onClick={() => setCreating({ date: view === "day" ? anchor : t, start: 9 })}
-            className="btn-hero flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold"
+            className="btn-hero flex items-center gap-1 sm:gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold"
           >
-            <Plus className="h-4 w-4" /> New block
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> New block
           </button>
         </div>
 

@@ -93,15 +93,15 @@ export function ActiveWorkoutBar() {
     <>
       <div
         onClick={() => expandActiveWorkout()}
-        className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-2xl cursor-pointer rounded-2xl border border-accent/40 bg-surface-1/95 p-3 shadow-float backdrop-blur-xl sm:bottom-6 sm:p-3.5 transition-all hover:border-accent hover:scale-[1.01] group"
+        className="fixed bottom-[72px] left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-2xl cursor-pointer rounded-2xl border border-accent/40 bg-surface-1/95 p-2.5 sm:p-3.5 shadow-float backdrop-blur-xl sm:bottom-6 transition-all hover:border-accent hover:scale-[1.01] group"
         role="region"
         aria-label="Active workout in progress"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-2.5">
           {/* Left info: Pulsing indicator, Session Name, and Set progress */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent">
-              <Dumbbell className="h-5 w-5 animate-pulse" />
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="relative grid h-8.5 w-8.5 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent">
+              <Dumbbell className="h-4 w-4 sm:h-5 sm:w-5 animate-pulse" />
               <span className="absolute -top-1 -right-1 flex h-3 w-3">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-accent" />

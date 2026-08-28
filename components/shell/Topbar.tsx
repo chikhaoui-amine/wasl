@@ -39,32 +39,47 @@ export function Topbar() {
   const today = useSyncExternalStore(noopSubscribe, getClientDate, () => null);
 
   return (
-    <header className="topbar-glass sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 md:px-6">
+    <header className="topbar-glass sticky top-0 z-30 flex h-12.5 sm:h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 md:px-6">
       <div className="min-w-0 flex-1">
-        <h1 className="font-display text-base sm:text-lg font-semibold leading-none tracking-tight text-text truncate">
+        <h1 className="font-display text-[15px] sm:text-lg font-semibold leading-none tracking-tight text-text truncate">
           {title}
         </h1>
-        <p className="mt-1 hidden text-[11px] text-faint sm:block">{today}</p>
+        <p className="mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] text-faint truncate">
+          <span className="sm:hidden">{today ? today.split(",")[0] : ""}</span>
+          <span className="hidden sm:inline">{today}</span>
+        </p>
       </div>
 
+      {/* Mobile Search Button */}
       <button
         onClick={() => setCommandOpen(true)}
-        className="hidden items-center gap-2 rounded-[8px] border border-border bg-surface-2/60 px-4 py-2 text-sm text-faint transition-colors hover:bg-surface-hover hover:text-muted sm:flex"
+        aria-label="Search or jump"
+        className="flex sm:hidden h-8 w-8 items-center justify-center rounded-[9px] border border-border bg-surface-2/60 text-faint hover:text-text hover:bg-surface-hover transition-colors shrink-0"
+        title="Search"
       >
-        <Search className="h-4 w-4" />
-        <span className="pr-6">Search or jump…</span>
+        <Search className="h-3.5 w-3.5" />
+      </button>
+
+      {/* Desktop Search Bar */}
+      <button
+        onClick={() => setCommandOpen(true)}
+        className="hidden items-center gap-2 rounded-[10px] border border-border bg-surface-2/60 px-3.5 py-1.5 text-xs text-faint transition-colors hover:bg-surface-hover hover:text-muted sm:flex"
+      >
+        <Search className="h-3.5 w-3.5" />
+        <span className="pr-4">Search or jump…</span>
         <Kbd>⌘K</Kbd>
       </button>
 
+      {/* Desktop Trash Button (On mobile, Trash is in the More popover) */}
       <button
         onClick={() => setTrashOpen(true)}
         aria-label={`Trash, ${trashItems.length} item${trashItems.length === 1 ? "" : "s"}`}
-        className="relative rounded-[8px] border border-border bg-surface-2/60 p-1.5 sm:p-2 text-faint hover:text-text hover:bg-surface-hover transition-colors"
+        className="hidden sm:flex relative h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-surface-2/60 text-faint hover:text-text hover:bg-surface-hover transition-colors shrink-0"
         title="Trash & Recovered Items"
       >
-        <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        <Trash2 className="h-4 w-4" />
         {trashItems.length > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-accent text-[8px] sm:text-[9px] font-bold text-black">
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-black">
             {trashItems.length}
           </span>
         )}

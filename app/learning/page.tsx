@@ -18,15 +18,15 @@ export default function LearningPage() {
   return (
     <Hydrate>
       <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <p className="max-w-xl text-[15px] leading-relaxed text-muted">
-            One page per thing you&apos;re learning — its roadmap, resources, and the insights you pick up along the way.
+        <div className="flex items-center justify-between gap-3">
+          <p className="max-w-xl text-xs sm:text-[15px] leading-relaxed text-muted">
+            One page per thing you&apos;re learning — its roadmap, resources, and insights.
           </p>
           <button
             onClick={() => setCreating(true)}
-            className="btn-hero flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold"
+            className="btn-hero flex shrink-0 items-center gap-1 sm:gap-1.5 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-[13px] font-semibold"
           >
-            <Plus className="h-4 w-4" /> New topic
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> New topic
           </button>
         </div>
 

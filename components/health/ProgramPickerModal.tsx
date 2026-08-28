@@ -50,20 +50,20 @@ export function ProgramPickerModal({
     >
       <div className="space-y-4">
         {/* Quick Custom Workout Option */}
-        <div className="rounded-xl border border-accent/40 bg-accent/10 p-3.5 space-y-2">
-          <div className="flex items-center justify-between">
+        <div className="rounded-xl border border-accent/40 bg-accent/10 p-3 sm:p-3.5 space-y-2">
+          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2.5">
             <div>
-              <h4 className="font-bold text-[14px] text-text flex items-center gap-1.5">
+              <h4 className="font-bold text-[13.5px] sm:text-[14px] text-text flex items-center gap-1.5">
                 <Zap className="h-4 w-4 text-accent fill-current" /> Quick Free-Form {selectedSport} Session
               </h4>
-              <p className="text-xs text-muted">Log a custom session without loading a pre-set program template.</p>
+              <p className="text-[11.5px] sm:text-xs text-muted">Log a custom session without loading a pre-set template.</p>
             </div>
             <button
               onClick={() => {
                 onSelectSession(undefined, selectedSport);
                 onClose();
               }}
-              className="btn-hero flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-bold shrink-0"
+              className="btn-hero flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-bold self-start xs:self-auto shrink-0"
             >
               Start Free <ChevronRight className="h-3.5 w-3.5" />
             </button>

@@ -534,16 +534,17 @@ export function NoteForm({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/95 backdrop-blur-xl animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-bg/95 backdrop-blur-xl animate-in fade-in duration-200">
         {/* Sticky Top Control Header */}
-        <div className="sticky top-0 z-20 border-b border-border/60 bg-bg/85 backdrop-blur-md px-4 py-2.5 sm:px-8">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 flex-wrap">
+        <div className="sticky top-0 z-20 border-b border-border/60 bg-bg/85 backdrop-blur-md px-3 py-2 sm:px-8">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 flex-wrap min-w-0">
             {/* Left: Back & Category & Type */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap min-w-0">
               <button
                 type="button"
                 onClick={handleClose}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-surface-2 hover:border-accent"
+                aria-label="Back to Notes"
+                className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-2.5 py-1.5 sm:px-3 text-xs font-semibold text-text transition-colors hover:bg-surface-2 hover:border-accent shrink-0"
               >
                 <ArrowLeft className="h-4 w-4 text-accent" />
                 <span className="hidden sm:inline">Back to Notes</span>
@@ -551,7 +552,7 @@ export function NoteForm({
 
               {/* Category Pill Dropdown */}
               <div
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold max-w-[120px] xs:max-w-[160px] truncate shrink-0"
                 style={{
                   background: `color-mix(in oklab, ${activeCategoryColor} 16%, transparent)`,
                   color: activeCategoryColor,
@@ -571,7 +572,7 @@ export function NoteForm({
                     }
                   }}
                   onBlur={flushSave}
-                  className="bg-transparent font-semibold outline-none cursor-pointer border-none text-xs"
+                  className="bg-transparent font-semibold outline-none cursor-pointer border-none text-xs truncate"
                   style={{ color: activeCategoryColor }}
                 >
                   {categories.map((c) => (
@@ -584,7 +585,7 @@ export function NoteForm({
               </div>
 
               {/* Content Type Segmented Switcher */}
-              <div className="flex items-center rounded-full bg-surface-2 p-0.5 text-xs">
+              <div className="flex items-center rounded-full bg-surface-2 p-0.5 text-xs shrink-0">
                 {CONTENT_TYPES.map((t) => {
                   const Icon = t.icon;
                   const isSelected = contentType === t.value;
@@ -597,7 +598,7 @@ export function NoteForm({
                         setTimeout(flushSave, 0);
                       }}
                       className={cn(
-                        "flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all",
+                        "flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-all",
                         isSelected ? "bg-surface-1 text-accent shadow-xs" : "text-faint hover:text-muted",
                       )}
                     >

@@ -278,7 +278,7 @@ function GoalFormInner({
         {/* Linked North Star for Yearly Outcomes & Projects */}
         {type !== "north_star" && (
           <Field label="Linked North Star (Direction)">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:grid-cols-3">
               {availableNorthStars.map((ns) => (
                 <button
                   key={ns.id}
@@ -346,7 +346,7 @@ function GoalFormInner({
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               <input
                 type="date"
                 className={inputCls}
@@ -412,7 +412,7 @@ function GoalFormInner({
         {/* Status selector */}
         {type !== "north_star" && (
           <Field label="Status">
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {(["active", "paused", "completed", "later"] as GoalStatus[]).map((st) => (
                 <button
                   key={st}

@@ -87,43 +87,44 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/95 backdrop-blur-xl animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-bg/95 backdrop-blur-xl animate-in fade-in duration-200">
       {/* Sticky Top Control Header */}
-      <div className="sticky top-0 z-20 border-b border-border/60 bg-bg/80 backdrop-blur-md px-4 py-3 sm:px-8">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+      <div className="sticky top-0 z-20 border-b border-border/60 bg-bg/80 backdrop-blur-md px-3 py-2 sm:px-8">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 min-w-0">
           {/* Back & Metadata Pills */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-surface-2 hover:border-accent"
+              aria-label="Back to notes"
+              className="flex items-center gap-1 rounded-full border border-border bg-surface-1 px-2.5 py-1.5 sm:px-3 text-xs font-semibold text-text transition-colors hover:bg-surface-2 hover:border-accent shrink-0"
             >
               <ArrowLeft className="h-4 w-4 text-accent" />
-              <span className="hidden sm:inline">Back to Notes</span>
+              <span className="hidden sm:inline">Back</span>
             </button>
 
             <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold max-w-[110px] xs:max-w-[150px] truncate shrink-0"
               style={{
                 background: `color-mix(in oklab, ${categoryColor} 16%, transparent)`,
                 color: categoryColor,
               }}
             >
               <span
-                className="h-2 w-2 rounded-full"
+                className="h-2 w-2 rounded-full shrink-0"
                 style={{ background: categoryColor }}
               />
-              {note.tag}
+              <span className="truncate">{note.tag}</span>
             </span>
 
-            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-xs font-medium text-muted">
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted shrink-0">
               <Icon className="h-3.5 w-3.5" />
               {TYPE_LABELS[contentType]}
             </span>
           </div>
 
           {/* Controls: Copy, Pin, Edit, Delete, Close */}
-          <div className="flex items-center gap-1.5">
-            <span className="hidden md:inline-block text-xs font-medium text-faint mr-2">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <span className="hidden md:inline-block text-xs font-medium text-faint mr-1">
               {words} words · {readTimeMin} min read
             </span>
 
@@ -132,7 +133,7 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
                 title="Export note"
-                className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+                className="grid sm:flex h-8 w-8 sm:h-auto sm:w-auto place-items-center sm:items-center gap-1 rounded-lg border border-border bg-surface-1 px-2 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
               >
                 <Download className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Export</span>
@@ -179,7 +180,7 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
             <button
               onClick={handleCopy}
               title="Copy markdown content"
-              className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              className="hidden xs:grid sm:flex h-8 w-8 sm:h-auto sm:w-auto place-items-center sm:items-center gap-1 rounded-lg border border-border bg-surface-1 px-2 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
             >
               {copied ? (
                 <>
@@ -202,15 +203,15 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
                 note.pinned ? "text-accent border-accent/40" : "text-faint hover:text-muted",
               )}
             >
-              <Pin className={cn("h-4 w-4", note.pinned && "fill-current")} style={{ rotate: "45deg" }} />
+              <Pin className={cn("h-3.5 w-3.5", note.pinned && "fill-current")} style={{ rotate: "45deg" }} />
             </button>
 
             <button
               onClick={onEdit}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground shadow-sm transition-all hover:brightness-110 active:scale-95"
+              className="btn-hero flex items-center gap-1 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-bold shadow-sm transition-all hover:brightness-110 active:scale-95"
             >
               <Pencil className="h-3.5 w-3.5" />
-              <span>Edit Note</span>
+              <span>Edit</span>
             </button>
 
             <button
@@ -218,13 +219,13 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
               title="Delete note"
               className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-surface-1 text-faint transition-colors hover:bg-danger/10 hover:text-danger hover:border-danger/30"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
 
             <button
               onClick={onClose}
               title="Close reader view"
-              className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-surface-1 text-muted transition-colors hover:bg-surface-2 hover:text-text ml-1"
+              className="grid h-8 w-8 place-items-center rounded-lg border border-border bg-surface-1 text-muted transition-colors hover:bg-surface-2 hover:text-text ml-0.5"
             >
               <X className="h-4 w-4" />
             </button>
@@ -233,30 +234,30 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
       </div>
 
       {/* Main Document Reader Content Body */}
-      <main className="mx-auto max-w-3xl px-5 sm:px-8 py-8 sm:py-14 space-y-6">
+      <main className="mx-auto max-w-3xl px-4 sm:px-8 py-6 sm:py-14 space-y-6 overflow-hidden">
         {/* Document Header Info */}
-        <header className="space-y-4 border-b border-border/60 pb-6">
+        <header className="space-y-3 sm:space-y-4 border-b border-border/60 pb-4 sm:pb-6">
           <h1
             dir={isRtlText(note.title) ? "rtl" : "ltr"}
             className={cn(
-              "font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-text leading-tight",
+              "font-display text-xl sm:text-4xl font-extrabold tracking-tight text-text leading-tight break-words",
               isRtlText(note.title) ? "text-right" : "text-left",
             )}
           >
             {note.title}
           </h1>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-muted pt-1">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs sm:text-sm text-muted pt-1">
+            <div className="flex flex-wrap items-center gap-2.5">
               {note.author && (
                 <span className="inline-flex items-center gap-1.5 font-semibold text-accent">
-                  <User className="h-4 w-4" />
+                  <User className="h-3.5 w-3.5" />
                   By {note.author}
                 </span>
               )}
 
               <span className="inline-flex items-center gap-1.5 text-faint">
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-3.5 w-3.5" />
                 Updated {relTime(note.updatedAt)}
               </span>
             </div>
@@ -275,12 +276,12 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
         </header>
 
         {/* Rendered Document Body */}
-        <article className="min-h-[300px] pt-2">
+        <article className="min-h-[300px] pt-2 break-words">
           {note.body ? (
             <MarkdownRenderer content={note.body} />
           ) : (
-            <p className="italic text-base text-faint text-center py-12">
-              This note is empty. Click <strong className="text-accent">Edit Note</strong> to add insights.
+            <p className="italic text-sm sm:text-base text-faint text-center py-12">
+              This note is empty. Click <strong className="text-accent">Edit</strong> to add insights.
             </p>
           )}
         </article>

@@ -43,7 +43,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <div className="app-grain" aria-hidden />
           <div className="relative z-10 min-h-0 flex-1 xl:overflow-y-auto">
             <Topbar />
-            <main className="mx-auto w-full max-w-7xl 2xl:max-w-[1400px] px-3.5 pb-28 pt-4 sm:px-4 sm:pt-6 sm:pb-36 md:px-6 md:pb-12">
+            <main className="mx-auto w-full max-w-7xl 2xl:max-w-[1400px] px-3 pb-28 pt-3 sm:px-4 sm:pt-6 sm:pb-32 md:px-6 md:pb-12">
               {children}
             </main>
           </div>

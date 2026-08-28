@@ -47,18 +47,18 @@ export function TodayFocusCard({
   const t = todayISO();
 
   return (
-    <Card className="overflow-hidden p-4 sm:p-5 flex flex-col h-full">
+    <Card className="overflow-hidden p-3.5 sm:p-5 flex flex-col h-full">
       <SectionTitle
         action={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {totalCount > 0 && (
-              <span className="tabular text-[11px] text-faint">
+              <span className="tabular text-[10.5px] sm:text-[11px] text-faint">
                 {completedCount}/{totalCount} done
               </span>
             )}
             <Link
               href="/tasks"
-              className="flex items-center gap-1 text-[11px] font-medium text-accent hover:opacity-80"
+              className="flex items-center gap-1 text-[10.5px] sm:text-[11px] font-medium text-accent hover:opacity-80"
             >
               All tasks <ArrowRight className="h-3 w-3" />
             </Link>
@@ -69,20 +69,20 @@ export function TodayFocusCard({
       </SectionTitle>
 
       {tasks.length === 0 ? (
-        <div className="flex min-h-24 sm:min-h-28 flex-col items-center justify-center text-center">
+        <div className="flex min-h-20 sm:min-h-28 flex-col items-center justify-center text-center">
           <p className="text-[12px] sm:text-[13px] font-medium text-muted">
             No tasks scheduled for today.
           </p>
           <button
             type="button"
             onClick={onAddTask}
-            className="mt-2.5 inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 sm:py-2 text-[12px] font-medium text-accent transition-colors hover:bg-accent-soft"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 sm:py-2 text-[11.5px] sm:text-[12px] font-medium text-accent transition-colors hover:bg-accent-soft"
           >
             <Plus className="h-3.5 w-3.5" /> Add task
           </button>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5 sm:space-y-2">
           {tasks.map((task) => {
             const goal = task.goalId ? goalById.get(task.goalId) : undefined;
             const done = task.status === "done";
@@ -91,7 +91,7 @@ export function TodayFocusCard({
               <div
                 key={task.id}
                 className={cn(
-                  "group flex items-center justify-between gap-3 rounded-[12px] sm:rounded-[14px] border p-2.5 sm:p-3 transition-all",
+                  "group flex items-center justify-between gap-2.5 sm:gap-3 rounded-[12px] sm:rounded-[14px] border p-2 sm:p-3 transition-all",
                   done
                     ? "border-success/20 bg-success/5"
                     : "border-border/70 bg-surface-2/45 hover:border-border hover:bg-surface-2/75",

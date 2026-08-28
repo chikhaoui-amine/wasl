@@ -239,8 +239,8 @@ export default function NotesPage() {
     <Hydrate>
       <div className="space-y-5">
         {/* Top Control Bar: Search, View Switcher & Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="relative min-w-[200px] flex-1 sm:max-w-md">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+          <div className="relative min-w-0 flex-1 sm:max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-faint" />
             <input
               type="text"
@@ -251,7 +251,7 @@ export default function NotesPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-between sm:justify-end">
             {/* View Mode Toggle Pill: Graph View on All Pages, Grid | Workspace | List on Category Pages */}
             {selectedCategory === "All" ? (
               <div className="flex items-center gap-1.5 rounded-full bg-surface-1 border border-border px-3.5 py-1.5 text-xs font-medium text-accent shadow-xs">
@@ -318,27 +318,29 @@ export default function NotesPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
               title="Import markdown (.md) file(s) into current category"
-              className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-50"
             >
               {importing ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
               ) : (
                 <Upload className="h-3.5 w-3.5 text-accent" />
               )}
-              <span>{importing ? "Importing..." : "Import .md"}</span>
+              <span className="hidden sm:inline">{importing ? "Importing..." : "Import .md"}</span>
+              <span className="sm:hidden">{importing ? "..." : "Import"}</span>
             </button>
 
             <button
               onClick={() => setCreatingCategory(true)}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-text"
             >
               <FolderPlus className="h-3.5 w-3.5" />
-              <span>+ Custom Page</span>
+              <span className="hidden sm:inline">+ Custom Page</span>
+              <span className="sm:hidden">+ Page</span>
             </button>
 
             <button
               onClick={() => setCreatingNote(true)}
-              className="btn-hero flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs sm:text-[13px] font-semibold"
+              className="btn-hero flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-[13px] font-semibold"
             >
               <Plus className="h-4 w-4" /> New Item
             </button>

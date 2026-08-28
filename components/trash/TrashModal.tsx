@@ -89,17 +89,17 @@ export function TrashModal({ open, onClose }: TrashModalProps) {
         )}
 
         {/* Helper Banner for Default Programs */}
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 p-3 text-xs text-text">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 rounded-xl border border-accent/30 bg-accent/10 p-2.5 sm:p-3 text-xs text-text">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-accent flex-shrink-0" />
-            <span>Missing standard training programs? Restore default programs anytime.</span>
+            <Sparkles className="h-4 w-4 text-accent shrink-0" />
+            <span>Missing standard training programs? Restore defaults anytime.</span>
           </div>
           <button
             onClick={async () => {
               await restoreDefaultPrograms();
               onClose();
             }}
-            className="btn-hero px-3 py-1.5 text-[11px] font-semibold flex-shrink-0"
+            className="btn-hero self-start sm:self-auto px-3 py-1.5 text-[11px] font-semibold shrink-0"
           >
             Restore Defaults
           </button>
@@ -107,11 +107,11 @@ export function TrashModal({ open, onClose }: TrashModalProps) {
 
         {/* Filter Tabs & Empty Trash */}
         <div className="flex items-center justify-between border-b border-border/60 pb-3 gap-2 flex-wrap">
-          <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-lg text-xs">
+          <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-lg text-xs overflow-x-auto scrollbar-none max-w-full">
             <button
               onClick={() => setFilter("all")}
               className={cn(
-                "px-2.5 py-1 rounded-md font-medium transition",
+                "px-2.5 py-1 rounded-md font-medium whitespace-nowrap transition",
                 filter === "all" ? "bg-surface-1 text-text shadow-sm" : "text-muted hover:text-text",
               )}
             >
@@ -120,7 +120,7 @@ export function TrashModal({ open, onClose }: TrashModalProps) {
             <button
               onClick={() => setFilter("health")}
               className={cn(
-                "px-2.5 py-1 rounded-md font-medium transition",
+                "px-2.5 py-1 rounded-md font-medium whitespace-nowrap transition",
                 filter === "health" ? "bg-surface-1 text-text shadow-sm" : "text-muted hover:text-text",
               )}
             >
@@ -129,7 +129,7 @@ export function TrashModal({ open, onClose }: TrashModalProps) {
             <button
               onClick={() => setFilter("tasks")}
               className={cn(
-                "px-2.5 py-1 rounded-md font-medium transition",
+                "px-2.5 py-1 rounded-md font-medium whitespace-nowrap transition",
                 filter === "tasks" ? "bg-surface-1 text-text shadow-sm" : "text-muted hover:text-text",
               )}
             >
@@ -138,7 +138,7 @@ export function TrashModal({ open, onClose }: TrashModalProps) {
             <button
               onClick={() => setFilter("notes")}
               className={cn(
-                "px-2.5 py-1 rounded-md font-medium transition",
+                "px-2.5 py-1 rounded-md font-medium whitespace-nowrap transition",
                 filter === "notes" ? "bg-surface-1 text-text shadow-sm" : "text-muted hover:text-text",
               )}
             >
@@ -149,7 +149,7 @@ export function TrashModal({ open, onClose }: TrashModalProps) {
           {items.length > 0 && (
             <button
               onClick={handleEmptyTrash}
-              className="text-xs text-red-400 hover:text-red-300 font-medium flex items-center gap-1 px-2 py-1"
+              className="text-xs text-red-400 hover:text-red-300 font-medium flex items-center gap-1 px-2 py-1 ml-auto"
             >
               <Trash2 className="h-3.5 w-3.5" /> Empty Trash
             </button>
@@ -164,21 +164,21 @@ export function TrashModal({ open, onClose }: TrashModalProps) {
             {filteredItems.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start justify-between gap-3 p-3 rounded-xl border border-border/60 bg-surface-1/60 hover:bg-surface-1 transition"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl border border-border/60 bg-surface-1/60 hover:bg-surface-1 transition"
               >
                 <div className="flex items-start gap-2.5 min-w-0">
-                  <div className="p-2 rounded-lg bg-surface-2 mt-0.5">{getIcon(item.itemType)}</div>
+                  <div className="p-1.5 sm:p-2 rounded-lg bg-surface-2 mt-0.5">{getIcon(item.itemType)}</div>
                   <div className="min-w-0">
                     <h4 className="text-sm font-semibold text-text truncate">{item.title}</h4>
                     {item.description && <p className="text-xs text-muted line-clamp-1 mt-0.5">{item.description}</p>}
-                    <span className="text-[10px] text-faint block mt-1">
+                    <span className="text-[10px] text-faint block mt-0.5">
                       Deleted {new Date(item.deletedAt).toLocaleDateString()} at{" "}
                       {new Date(item.deletedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
                   <button
                     onClick={() => handleRestore(item.id)}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 text-xs font-semibold transition"

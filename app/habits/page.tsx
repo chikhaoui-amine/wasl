@@ -112,18 +112,18 @@ export default function HabitsPage() {
     <Hydrate>
       <div className="space-y-5">
         {/* header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[15px] text-muted">
-            <span className="font-display text-xl font-semibold text-text">
+        <div className="flex items-center justify-between gap-2.5">
+          <p className="text-xs sm:text-[14px] text-muted">
+            <span className="font-display text-base sm:text-lg font-bold text-text">
               {doneToday}/{habits.length}
             </span>{" "}
             done today
           </p>
           <button
             onClick={() => setCreating(true)}
-            className="btn-hero flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold"
+            className="btn-hero flex items-center gap-1 sm:gap-1.5 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-[13px] font-semibold shrink-0"
           >
-            <Plus className="h-4 w-4" /> New habit
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> New habit
           </button>
         </div>
 
@@ -301,15 +301,15 @@ export default function HabitsPage() {
 
           {/* side stats */}
           <div className="space-y-4">
-            <div className="card-hero flex items-center gap-4 p-4">
+            <div className="card-hero flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4">
               <div className="relative z-10">
-                <ProgressRing value={weekPct} size={64}>
-                  <span className="tabular text-[13px] font-semibold text-text">{weekPct}%</span>
+                <ProgressRing value={weekPct} size={54}>
+                  <span className="tabular text-[12px] sm:text-[13px] font-semibold text-text">{weekPct}%</span>
                 </ProgressRing>
               </div>
-              <div className="relative z-10">
-                <p className="font-medium text-text">This week</p>
-                <p className="tabular text-[12px] text-faint">
+              <div className="relative z-10 min-w-0">
+                <p className="font-medium text-[13.5px] sm:text-base text-text">This week</p>
+                <p className="tabular text-[11px] sm:text-[12px] text-faint">
                   {weekTotal}/{weekTarget} vs targets
                 </p>
               </div>
@@ -386,15 +386,15 @@ function HabitDetail({
       wide
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
             { label: "Streak", value: `${streak}d` },
             { label: "Best", value: `${best}d` },
             { label: "30-day rate", value: `${rate}%` },
             { label: "Total", value: total },
           ].map((s) => (
-            <div key={s.label} className="rounded-[12px] bg-surface-2 p-3 text-center">
-              <div className="tabular font-display text-lg font-semibold text-text">{s.value}</div>
+            <div key={s.label} className="rounded-[12px] bg-surface-2 p-2.5 sm:p-3 text-center">
+              <div className="tabular font-display text-base sm:text-lg font-semibold text-text">{s.value}</div>
               <div className="text-[10px] text-faint">{s.label}</div>
             </div>
           ))}

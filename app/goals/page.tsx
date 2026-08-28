@@ -95,9 +95,9 @@ function CompactOutcomeRow({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-        <div className="w-24 sm:w-28 space-y-1 text-right">
-          <div className="flex items-center justify-between text-[11px]">
+      <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto pt-1 sm:pt-0 border-t border-border/40 sm:border-0 shrink-0">
+        <div className="w-24 sm:w-28 space-y-1 text-left sm:text-right">
+          <div className="flex items-center justify-between text-[10.5px] sm:text-[11px]">
             <span className="text-faint">
               {milestones.length > 0 ? `${doneCount}/${milestones.length}` : "Progress"}
             </span>
