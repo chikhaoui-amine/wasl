@@ -10,6 +10,7 @@ export const NoteCategorySchema = z.object({
   name: z.string(),
   color: z.string(),
   icon: z.string().optional(),
+  linkedCategoryIds: z.array(z.string()).optional(),
 });
 
 export const NoteContentTypeSchema = z.enum(["note", "read", "listen", "idea"]);

@@ -9,6 +9,7 @@ export interface NoteCategory {
   name: string;
   color: string;
   icon?: string;
+  linkedCategoryIds?: string[];
 }
 
 export interface Note {
@@ -185,7 +186,7 @@ export function addCategoryOperation(
 export function updateCategoryOperation(
   current: NotesPersistedState | null | undefined,
   id: string,
-  patch: Partial<{ name: string; color: string; icon?: string }>,
+  patch: Partial<{ name: string; color: string; icon?: string; linkedCategoryIds?: string[] }>,
 ): NotesPersistedState {
   const base = normalizeNotesState(current);
   return {

@@ -2,7 +2,11 @@
 
 ## Architecture
 
-- **Edition**: WASL Local operates 100% offline with zero credentials, zero network dependencies, and zero accounts.
+- **Two Workspaces & Repository Roles**:
+  - **`wasl-local` (`/home/amine/wasl-local`)**: Public open-source repository (`https://github.com/chikhaoui-amine/wasl.git`). 100% offline, zero-auth, zero network credentials. Persistence is IndexedDB (`wasl-local`) via Dexie through `LocalAdapter`. ONLY `wasl-local` code is pushed to this GitHub repository.
+  - **`wasl-cloud` (`/home/amine/wasl-cloud`)**: Cloud edition with Supabase Auth, Postgres snapshots, Cloud Sync, and OAuth.
+- **Dual-Edition Development Rule**:
+  - Whenever implementing features, UI enhancements, optimizations, or fixes: **ALWAYS implement in BOTH `wasl-local` and `wasl-cloud`**, keeping local vs cloud architectural boundaries strictly in mind.
 - **Persistence**: All data is stored in the browser's IndexedDB (`wasl-local`) via Dexie through `LocalAdapter` (`lib/data/adapters/local/`).
 - **Data layer**: Persistence goes through the `DataAdapter` interface (`lib/data/types.ts`). Components interact with domain hooks in `lib/data/domains/<domain>/hooks.ts`.
 - **Store registry**: Active stores and schema versions live in `lib/data/store-registry.ts` (11 active stores).

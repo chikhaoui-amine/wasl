@@ -37,7 +37,11 @@ import {
   Trash2,
   User,
   FileCode,
+  Download,
+  Upload,
 } from "lucide-react";
+import { exportNoteAsMarkdown } from "@/lib/notes-export";
+import { parseMarkdownNote } from "@/lib/notes-import";
 import { CategoryForm } from "./CategoryForm";
 import { ImageInsertModal } from "./ImageInsertModal";
 import {
@@ -281,6 +285,41 @@ export function NoteForm({
     } catch (err) {
       console.error("Failed to delete note:", err);
     }
+  };
+
+  const mdFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadMarkdown = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = parseMarkdownNote(text, file.name, tag || defaultCategoryName);
+      if (parsed.title) setTitle(parsed.title);
+      if (parsed.body) setBody(parsed.body);
+      if (parsed.tag) setTag(parsed.tag);
+      if (parsed.author) setAuthor(parsed.author);
+      if (parsed.sourceUrl) setSourceUrl(parsed.sourceUrl);
+      if (parsed.contentType) setContentType(parsed.contentType);
+    } catch (err) {
+      console.error("Failed to read markdown file:", err);
+    } finally {
+      if (mdFileInputRef.current) mdFileInputRef.current.value = "";
+    }
+  };
+
+  const handleExportMarkdown = () => {
+    exportNoteAsMarkdown({
+      id: activeNoteIdRef.current || "draft",
+      title: title || "Untitled Note",
+      body: getFullComposedBody(),
+      tag: tag || defaultCategoryName,
+      author,
+      sourceUrl,
+      contentType,
+      pinned: note?.pinned ?? false,
+      updatedAt: Date.now(),
+    });
   };
 
   // Close on Escape key
@@ -597,6 +636,36 @@ export function NoteForm({
                   </span>
                 )}
               </div>
+
+              {/* Hidden file input for uploading markdown file */}
+              <input
+                ref={mdFileInputRef}
+                type="file"
+                accept=".md,.markdown,.txt"
+                onChange={handleUploadMarkdown}
+                className="hidden"
+              />
+
+              {/* Import / Export Markdown Action Buttons */}
+              <button
+                type="button"
+                onClick={() => mdFileInputRef.current?.click()}
+                title="Import markdown file into editor"
+                className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Import .md</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportMarkdown}
+                title="Export current note as markdown"
+                className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
 
               {/* View Mode Toggle: Source (Write) | Read (Preview) */}
               <div className="flex items-center rounded-lg bg-surface-2 p-0.5 text-xs font-medium">

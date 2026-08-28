@@ -133,12 +133,18 @@ export function useNotesData() {
   );
 
   const addCategory = useCallback(
-    async (input: { name: string; color: string; icon?: string }): Promise<NoteCategory> => {
+    async (input: {
+      name: string;
+      color: string;
+      icon?: string;
+      linkedCategoryIds?: string[];
+    }): Promise<NoteCategory> => {
       const cat: NoteCategory = {
         id: `cat-${crypto.randomUUID()}`,
         name: input.name.trim(),
         color: input.color || "var(--accent)",
         icon: input.icon,
+        linkedCategoryIds: input.linkedCategoryIds,
       };
       await mutation.mutateAsync((current) => addCategoryOperation(current, cat));
       return cat;
@@ -149,7 +155,7 @@ export function useNotesData() {
   const updateCategory = useCallback(
     async (
       id: string,
-      patch: { name?: string; color?: string; icon?: string },
+      patch: { name?: string; color?: string; icon?: string; linkedCategoryIds?: string[] },
     ): Promise<void> => {
       await mutation.mutateAsync((current) => updateCategoryOperation(current, id, patch));
     },

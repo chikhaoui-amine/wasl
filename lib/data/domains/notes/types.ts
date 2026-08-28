@@ -7,6 +7,7 @@ export interface NoteCategory {
   name: string;
   color: string;
   icon?: string;
+  linkedCategoryIds?: string[];
 }
 
 export interface Note {

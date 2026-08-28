@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   BookOpen,
   ExternalLink,
@@ -15,13 +15,18 @@ import {
   LayoutGrid,
   Columns2,
   List as ListIcon,
+  Network,
+  Upload,
+  Loader2,
 } from "lucide-react";
+import { importMarkdownFiles } from "@/lib/notes-import";
 import { useNotesData, relTime, type Note, type NoteCategory, type NoteContentType } from "@/lib/data/domains/notes";
 import { NoteForm } from "@/components/forms/NoteForm";
 import { NoteDetail } from "@/components/details/NoteDetail";
 import { CategoryForm } from "@/components/forms/CategoryForm";
 import { NoteSplitView } from "@/components/notes/NoteSplitView";
 import { NoteListView } from "@/components/notes/NoteListView";
+import { NotesGraphView } from "@/components/notes/NotesGraphView";
 import { isRtlText } from "@/components/ui/MarkdownRenderer";
 import { Card } from "@/components/ui/primitives";
 import { Hydrate } from "@/lib/hydration";
@@ -137,8 +142,27 @@ function NoteCard({
 }
 
 export default function NotesPage() {
-  const { notes, categories } = useNotesData();
+  const { notes, categories, addNote, addCategory, updateCategory } = useNotesData();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+
+  const handleUpdateCategoryLinks = async (
+    idOrName: string,
+    patch: { name?: string; color?: string; icon?: string; linkedCategoryIds?: string[] },
+  ) => {
+    const existing = categories.find(
+      (c) => c.id === idOrName || c.name.toLowerCase().trim() === idOrName.toLowerCase().trim(),
+    );
+    if (existing) {
+      await updateCategory(existing.id, patch);
+    } else {
+      await addCategory({
+        name: patch.name || idOrName,
+        color: patch.color || "var(--accent)",
+        icon: patch.icon,
+        linkedCategoryIds: patch.linkedCategoryIds,
+      });
+    }
+  };
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "grid";
@@ -158,6 +182,32 @@ export default function NotesPage() {
   const [editingCategory, setEditingCategory] = useState<NoteCategory | undefined>();
   const [readingNote, setReadingNote] = useState<Note | undefined>();
   const [editing, setEditing] = useState<Note | undefined>();
+
+  const [importing, setImporting] = useState(false);
+  const [importToast, setImportToast] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleBatchImportMarkdown = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setImporting(true);
+    try {
+      const defaultTag = selectedCategory === "All" ? (categories[0]?.name || "Personal") : selectedCategory;
+      const count = await importMarkdownFiles(files, defaultTag, async (noteData) => {
+        await addNote(noteData);
+      });
+      setImportToast(`Successfully imported ${count} ${count === 1 ? "note" : "notes"}!`);
+      setTimeout(() => setImportToast(null), 3500);
+    } catch (err) {
+      console.error("Batch import error:", err);
+      setImportToast("Failed to import some markdown files.");
+      setTimeout(() => setImportToast(null), 3500);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleSetViewMode = (mode: ViewMode) => {
     setViewMode(mode);
@@ -202,50 +252,81 @@ export default function NotesPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* View Mode Toggle Pill (Grid | Workspace | List) */}
-            <div className="flex items-center rounded-full bg-surface-1 border border-border p-0.5">
-              <button
-                onClick={() => handleSetViewMode("grid")}
-                title="Grid View"
-                className={cn(
-                  "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
-                  viewMode === "grid"
-                    ? "bg-surface-2 text-accent shadow-xs"
-                    : "text-faint hover:text-muted",
-                )}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Grid</span>
-              </button>
+            {/* View Mode Toggle Pill: Graph View on All Pages, Grid | Workspace | List on Category Pages */}
+            {selectedCategory === "All" ? (
+              <div className="flex items-center gap-1.5 rounded-full bg-surface-1 border border-border px-3.5 py-1.5 text-xs font-medium text-accent shadow-xs">
+                <Network className="h-3.5 w-3.5" />
+                <span>Graph View</span>
+              </div>
+            ) : (
+              <div className="flex items-center rounded-full bg-surface-1 border border-border p-0.5">
+                <button
+                  onClick={() => handleSetViewMode("grid")}
+                  title="Grid View"
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
+                    viewMode === "grid"
+                      ? "bg-surface-2 text-accent shadow-xs"
+                      : "text-faint hover:text-muted",
+                  )}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
 
-              <button
-                onClick={() => handleSetViewMode("split")}
-                title="Workspace Split View"
-                className={cn(
-                  "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
-                  viewMode === "split"
-                    ? "bg-surface-2 text-accent shadow-xs"
-                    : "text-faint hover:text-muted",
-                )}
-              >
-                <Columns2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Workspace</span>
-              </button>
+                <button
+                  onClick={() => handleSetViewMode("split")}
+                  title="Workspace Split View"
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
+                    viewMode === "split"
+                      ? "bg-surface-2 text-accent shadow-xs"
+                      : "text-faint hover:text-muted",
+                  )}
+                >
+                  <Columns2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Workspace</span>
+                </button>
 
-              <button
-                onClick={() => handleSetViewMode("list")}
-                title="List View"
-                className={cn(
-                  "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
-                  viewMode === "list"
-                    ? "bg-surface-2 text-accent shadow-xs"
-                    : "text-faint hover:text-muted",
-                )}
-              >
-                <ListIcon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">List</span>
-              </button>
-            </div>
+                <button
+                  onClick={() => handleSetViewMode("list")}
+                  title="List View"
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
+                    viewMode === "list"
+                      ? "bg-surface-2 text-accent shadow-xs"
+                      : "text-faint hover:text-muted",
+                  )}
+                >
+                  <ListIcon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+              </div>
+            )}
+
+            {/* Hidden file input for batch markdown import */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.markdown,.txt"
+              multiple
+              onChange={handleBatchImportMarkdown}
+              className="hidden"
+            />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              title="Import markdown (.md) file(s) into current category"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-50"
+            >
+              {importing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+              ) : (
+                <Upload className="h-3.5 w-3.5 text-accent" />
+              )}
+              <span>{importing ? "Importing..." : "Import .md"}</span>
+            </button>
 
             <button
               onClick={() => setCreatingCategory(true)}
@@ -263,6 +344,15 @@ export default function NotesPage() {
             </button>
           </div>
         </div>
+
+        {/* Import Toast Banner */}
+        {importToast && (
+          <div className="flex justify-center">
+            <div className="rounded-full border border-accent/40 bg-surface-1/95 px-4 py-1.5 text-xs font-semibold text-accent shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150">
+              {importToast}
+            </div>
+          </div>
+        )}
 
         {/* Custom Pages / Category Filter Tabs */}
         <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -318,48 +408,62 @@ export default function NotesPage() {
           </div>
         </div>
 
-        {/* Multi-View Notes Display */}
-        {viewMode === "grid" && (
-          sorted.length === 0 ? (
-            <Card className="p-10 text-center text-sm text-faint">
-              {notes.length === 0 ? (
-                <>No items in your Knowledge Base yet. Click <strong>+ New Item</strong> to add thoughts, articles, or podcasts.</>
+        {/* Multi-View Notes Display: Graph on "All Pages", Grid/Split/List on Category Pages */}
+        {selectedCategory === "All" ? (
+          <NotesGraphView
+            notes={sorted}
+            categories={categories}
+            search={search}
+            onSelectNote={(n) => setReadingNote(n)}
+            onSelectCategory={(catName) => setSelectedCategory(catName)}
+            onUpdateCategory={handleUpdateCategoryLinks}
+            onNewNote={() => setCreatingNote(true)}
+          />
+        ) : (
+          <>
+            {viewMode === "grid" && (
+              sorted.length === 0 ? (
+                <Card className="p-10 text-center text-sm text-faint">
+                  {notes.length === 0 ? (
+                    <>No items in your Knowledge Base yet. Click <strong>+ New Item</strong> to add thoughts, articles, or podcasts.</>
+                  ) : (
+                    <>No matching items found for this filter.</>
+                  )}
+                </Card>
               ) : (
-                <>No matching items found for this filter.</>
-              )}
-            </Card>
-          ) : (
-            <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
-              {sorted.map((n) => (
-                <NoteCard
-                  key={n.id}
-                  note={n}
-                  onRead={() => setReadingNote(n)}
-                  onEdit={() => setEditing(n)}
-                />
-              ))}
-            </div>
-          )
-        )}
+                <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
+                  {sorted.map((n) => (
+                    <NoteCard
+                      key={n.id}
+                      note={n}
+                      onRead={() => setReadingNote(n)}
+                      onEdit={() => setEditing(n)}
+                    />
+                  ))}
+                </div>
+              )
+            )}
 
-        {viewMode === "split" && (
-          <NoteSplitView
-            notes={sorted}
-            categories={categories}
-            activeNoteId={activeSplitNoteId}
-            onSelectNote={(note) => setActiveSplitNoteId(note.id)}
-            onNewNote={() => setCreatingNote(true)}
-          />
-        )}
+            {viewMode === "split" && (
+              <NoteSplitView
+                notes={sorted}
+                categories={categories}
+                activeNoteId={activeSplitNoteId}
+                onSelectNote={(note) => setActiveSplitNoteId(note.id)}
+                onNewNote={() => setCreatingNote(true)}
+              />
+            )}
 
-        {viewMode === "list" && (
-          <NoteListView
-            notes={sorted}
-            categories={categories}
-            onRead={(note) => setReadingNote(note)}
-            onEdit={(note) => setEditing(note)}
-            onNewNote={() => setCreatingNote(true)}
-          />
+            {viewMode === "list" && (
+              <NoteListView
+                notes={sorted}
+                categories={categories}
+                onRead={(note) => setReadingNote(note)}
+                onEdit={(note) => setEditing(note)}
+                onNewNote={() => setCreatingNote(true)}
+              />
+            )}
+          </>
         )}
       </div>
 

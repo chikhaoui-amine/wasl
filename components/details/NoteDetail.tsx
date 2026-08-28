@@ -3,17 +3,21 @@
 import { useEffect, useState } from "react";
 import { useNotesData, relTime, type Note, type NoteContentType } from "@/lib/data/domains/notes";
 import { MarkdownRenderer, isRtlText } from "@/components/ui/MarkdownRenderer";
+import { exportNoteAsMarkdown, exportNoteAsPdf } from "@/lib/notes-export";
 import {
   ArrowLeft,
   BookOpen,
   Calendar,
   Check,
   Copy,
+  Download,
   ExternalLink,
+  FileText,
   Headphones,
   Lightbulb,
   Pencil,
   Pin,
+  Printer,
   StickyNote,
   Trash2,
   User,
@@ -44,6 +48,7 @@ interface NoteDetailProps {
 export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
   const { togglePin, deleteNote, categories } = useNotesData();
   const [copied, setCopied] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -121,6 +126,55 @@ export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
             <span className="hidden md:inline-block text-xs font-medium text-faint mr-2">
               {words} words · {readTimeMin} min read
             </span>
+
+            {/* Export Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                title="Export note"
+                className="flex items-center gap-1 rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+
+              {showExportMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setShowExportMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full z-40 mt-1.5 w-52 rounded-xl border border-border bg-surface-1 p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                    <button
+                      onClick={() => {
+                        exportNoteAsMarkdown(note);
+                        setShowExportMenu(false);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-text hover:bg-surface-2 hover:text-accent transition-colors"
+                    >
+                      <FileText className="h-4 w-4 text-accent" />
+                      <div>
+                        <div>Download Markdown</div>
+                        <div className="text-[10px] text-faint">.md with frontmatter</div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportNoteAsPdf(note, categoryColor);
+                        setShowExportMenu(false);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-text hover:bg-surface-2 hover:text-accent transition-colors"
+                    >
+                      <Printer className="h-4 w-4 text-accent" />
+                      <div>
+                        <div>Export as PDF</div>
+                        <div className="text-[10px] text-faint">Formatted print document</div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
 
             <button
               onClick={handleCopy}
