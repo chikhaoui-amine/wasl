@@ -19,10 +19,18 @@ const sampleNorthStars = [
     count: 2,
     isUserCreated: true,
   },
+  {
+    id: "finance",
+    title: "Finance & Wealth",
+    description: "Financial independence.",
+    color: "#eab308",
+    count: 0,
+    isUserCreated: false,
+  },
 ];
 
 describe("NorthStarFilterStrip", () => {
-  it("renders All Goals chip and individual North Star filter chips", () => {
+  it("renders All Directions and category chips with counts only when count > 0", () => {
     const html = renderToStaticMarkup(
       <NorthStarFilterStrip
         northStars={sampleNorthStars}
@@ -39,10 +47,14 @@ describe("NorthStarFilterStrip", () => {
     expect(html).toContain("3");
     expect(html).toContain("Career &amp; Craft");
     expect(html).toContain("2");
-    expect(html).toContain("+ Add Direction");
+    expect(html).toContain("Finance &amp; Wealth");
+    // Verify that "0" badge is suppressed
+    expect(html).not.toMatch(/<span[^>]*tabular-nums[^>]*>\s*0\s*<\/span>/);
+    expect(html).toContain("Add Direction");
+    expect(html).not.toContain("+ + Add Direction");
   });
 
-  it("shows vision description when a North Star is selected", () => {
+  it("renders selected North Star chip with active styling", () => {
     const html = renderToStaticMarkup(
       <NorthStarFilterStrip
         northStars={sampleNorthStars}
@@ -53,6 +65,7 @@ describe("NorthStarFilterStrip", () => {
       />,
     );
 
-    expect(html).toContain("Peak physical and mental energy every single day.");
+    expect(html).toContain("Health &amp; Vitality");
   });
 });
+

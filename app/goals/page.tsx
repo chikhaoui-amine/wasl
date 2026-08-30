@@ -29,12 +29,11 @@ import { GoalCard } from "@/components/goals/GoalCard";
 import { GoalListRow } from "@/components/goals/GoalListRow";
 import { GoalForm } from "@/components/forms/GoalForm";
 import { GoalDetail } from "@/components/details/GoalDetail";
-import { Modal } from "@/components/ui/Modal";
 import { Hydrate } from "@/lib/hydration";
 import { cn } from "@/lib/utils";
 
 export default function GoalsPage() {
-  const { goals, addGoal, deleteGoal, toggleMilestone } = useGoalsData();
+  const { goals, addGoal, toggleMilestone } = useGoalsData();
   const { tasks } = useTasksData();
 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -47,12 +46,6 @@ export default function GoalsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [hiddenNorthStars, setHiddenNorthStars] = useState<string[]>([]);
-  const [deletingNorthStar, setDeletingNorthStar] = useState<{
-    id: string;
-    title: string;
-    isUserCreated: boolean;
-    goalCount: number;
-  } | null>(null);
 
   // Load hidden presets from localStorage
   useEffect(() => {
@@ -67,47 +60,12 @@ export default function GoalsPage() {
     }
   }, []);
 
-  const hidePresetNorthStar = (presetId: string) => {
-    setHiddenNorthStars((prev) => {
-      const next = prev.includes(presetId) ? prev : [...prev, presetId];
-      try {
-        localStorage.setItem("wasl_hidden_north_stars", JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  };
-
   const restoreHiddenPresets = () => {
     setHiddenNorthStars([]);
     try {
       localStorage.removeItem("wasl_hidden_north_stars");
     } catch {
       // ignore
-    }
-  };
-
-  const confirmDeleteNorthStar = () => {
-    if (!deletingNorthStar) return;
-    if (deletingNorthStar.isUserCreated) {
-      deleteGoal(deletingNorthStar.id);
-    } else {
-      hidePresetNorthStar(deletingNorthStar.id);
-    }
-    if (selectedNorthStarId === deletingNorthStar.id) {
-      setSelectedNorthStarId(null);
-    }
-    setDeletingNorthStar(null);
-  };
-
-  const editNorthStar = (ns: { id: string }) => {
-    const found = goals.find((g) => g.id === ns.id && g.type === "north_star");
-    if (found) {
-      setEditingGoal(found);
-      setInitialType("north_star");
-      setInitialNorthStarId(undefined);
-      setCreating(true);
     }
   };
 
@@ -205,6 +163,12 @@ export default function GoalsPage() {
         if (ns.count > 0) return true;
         if (userNorthStars.length === 0) return true;
         return false;
+      })
+      .sort((a, b) => {
+        // Active directions (count > 0) or user-created first
+        const aActive = (a.count > 0 ? 2 : 0) + (a.isUserCreated ? 1 : 0);
+        const bActive = (b.count > 0 ? 2 : 0) + (b.isUserCreated ? 1 : 0);
+        return bActive - aActive;
       });
   }, [allNorthStarsMeta, yearActiveGoals, userNorthStars]);
 
@@ -213,6 +177,55 @@ export default function GoalsPage() {
     if (!selectedNorthStarId) return yearActiveGoals;
     return yearActiveGoals.filter((g) => matchesNorthStar(g, selectedNorthStarId));
   }, [yearActiveGoals, selectedNorthStarId]);
+
+  // Grouped active goals by North Star category when in "All Directions"
+  const groupedGoals = useMemo(() => {
+    const groups: {
+      meta: { id: string; title: string; color?: string; description?: string };
+      goals: Goal[];
+    }[] = [];
+
+    const allocatedGoalIds = new Set<string>();
+
+    // 1. First iterate over categories in northStarsWithCount that have goals in yearActiveGoals
+    for (const ns of northStarsWithCount) {
+      const matching = yearActiveGoals.filter(
+        (g) => !allocatedGoalIds.has(g.id) && matchesNorthStar(g, ns.id),
+      );
+      if (matching.length > 0) {
+        matching.forEach((g) => allocatedGoalIds.add(g.id));
+        groups.push({
+          meta: {
+            id: ns.id,
+            title: ns.title,
+            color: ns.color,
+            description: ns.description,
+          },
+          goals: matching,
+        });
+      }
+    }
+
+    // 2. Any active goals not yet allocated
+    const unallocated = yearActiveGoals.filter((g) => !allocatedGoalIds.has(g.id));
+    if (unallocated.length > 0) {
+      const leftoversMap = new Map<
+        string,
+        { meta: { id: string; title: string; color?: string }; goals: Goal[] }
+      >();
+      for (const g of unallocated) {
+        const meta = getNorthStarMeta(g.northStarId || g.category, goals);
+        const entry = leftoversMap.get(meta.id) || { meta, goals: [] };
+        entry.goals.push(g);
+        leftoversMap.set(meta.id, entry);
+      }
+      leftoversMap.forEach((entry) => {
+        groups.push(entry);
+      });
+    }
+
+    return groups;
+  }, [northStarsWithCount, yearActiveGoals, goals]);
 
   // Summary Metrics calculations
   const summaryMetrics = useMemo(() => {
@@ -361,15 +374,6 @@ export default function GoalsPage() {
           totalGoalsCount={yearActiveGoals.length}
           onSelect={(id) => setSelectedNorthStarId(id)}
           onAddNorthStar={() => openCreateModal("north_star")}
-          onEditNorthStar={(ns) => editNorthStar(ns)}
-          onDeleteNorthStar={(ns) =>
-            setDeletingNorthStar({
-              id: ns.id,
-              title: ns.title,
-              isUserCreated: !!ns.isUserCreated,
-              goalCount: ns.count,
-            })
-          }
         />
 
         {/* Main Goals Section */}
@@ -400,50 +404,132 @@ export default function GoalsPage() {
                 <span>Add Goal</span>
               </button>
             </div>
-          ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
-              {displayedGoals.map((goal) => {
-                const nsId = goal.northStarId || goal.category;
-                const nsMeta = allNorthStarsMeta.find((n) => n.id === nsId) || getNorthStarMeta(nsId);
-                const taskCount = taskCountByGoalId.get(goal.id) || 0;
+          ) : selectedNorthStarId ? (
+            // Single Direction Filtered View
+            viewMode === "grid" ? (
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
+                {displayedGoals.map((goal) => {
+                  const nsId = goal.northStarId || goal.category;
+                  const nsMeta =
+                    allNorthStarsMeta.find((n) => n.id === nsId) || getNorthStarMeta(nsId, goals);
+                  const taskCount = taskCountByGoalId.get(goal.id) || 0;
 
-                return (
-                  <GoalCard
-                    key={goal.id}
-                    goal={goal}
-                    northStarMeta={{
-                      id: nsMeta.id,
-                      title: nsMeta.title,
-                      color: nsMeta.color,
-                    }}
-                    linkedTaskCount={taskCount}
-                    onOpen={() => setOpenId(goal.id)}
-                    onToggleMilestone={(gId, mId) => toggleMilestone(gId, mId)}
-                  />
-                );
-              })}
-            </div>
+                  return (
+                    <GoalCard
+                      key={goal.id}
+                      goal={goal}
+                      northStarMeta={{
+                        id: nsMeta.id,
+                        title: nsMeta.title,
+                        color: nsMeta.color,
+                      }}
+                      linkedTaskCount={taskCount}
+                      onOpen={() => setOpenId(goal.id)}
+                      onToggleMilestone={(gId, mId) => toggleMilestone(gId, mId)}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {displayedGoals.map((goal) => {
+                  const nsId = goal.northStarId || goal.category;
+                  const nsMeta =
+                    allNorthStarsMeta.find((n) => n.id === nsId) || getNorthStarMeta(nsId, goals);
+                  const taskCount = taskCountByGoalId.get(goal.id) || 0;
+
+                  return (
+                    <GoalListRow
+                      key={goal.id}
+                      goal={goal}
+                      northStarMeta={{
+                        id: nsMeta.id,
+                        title: nsMeta.title,
+                        color: nsMeta.color,
+                      }}
+                      linkedTaskCount={taskCount}
+                      onOpen={() => setOpenId(goal.id)}
+                    />
+                  );
+                })}
+              </div>
+            )
           ) : (
-            <div className="space-y-2">
-              {displayedGoals.map((goal) => {
-                const nsId = goal.northStarId || goal.category;
-                const nsMeta = allNorthStarsMeta.find((n) => n.id === nsId) || getNorthStarMeta(nsId);
-                const taskCount = taskCountByGoalId.get(goal.id) || 0;
+            // All Directions: Divided by Category
+            <div className="space-y-6 sm:space-y-8">
+              {groupedGoals.map((group) => (
+                <div key={group.meta.id} className="space-y-3 sm:space-y-3.5">
+                  {/* Category Section Header */}
+                  <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs"
+                        style={{ backgroundColor: group.meta.color || "var(--accent)" }}
+                      />
+                      <h2 className="text-sm sm:text-base font-bold tracking-tight text-text truncate">
+                        {group.meta.title}
+                      </h2>
+                      <span className="rounded-full bg-surface-2 border border-border/70 px-2 py-0.2 text-[10px] font-bold text-muted tabular-nums">
+                        {group.goals.length}
+                      </span>
+                    </div>
 
-                return (
-                  <GoalListRow
-                    key={goal.id}
-                    goal={goal}
-                    northStarMeta={{
-                      id: nsMeta.id,
-                      title: nsMeta.title,
-                      color: nsMeta.color,
-                    }}
-                    linkedTaskCount={taskCount}
-                    onOpen={() => setOpenId(goal.id)}
-                  />
-                );
-              })}
+                    <button
+                      type="button"
+                      onClick={() => openCreateModal("yearly_outcome", group.meta.id)}
+                      className="flex items-center gap-1 rounded-full border border-border/70 bg-surface-2/60 hover:bg-surface-2 hover:border-border-strong hover:text-text px-2.5 py-1 text-xs font-medium text-muted transition-all"
+                      title={`Add goal to ${group.meta.title}`}
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span className="text-[11px] font-medium hidden sm:inline">Add Goal</span>
+                    </button>
+                  </div>
+
+                  {/* Category Goals */}
+                  {viewMode === "grid" ? (
+                    <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
+                      {group.goals.map((goal) => {
+                        const taskCount = taskCountByGoalId.get(goal.id) || 0;
+
+                        return (
+                          <GoalCard
+                            key={goal.id}
+                            goal={goal}
+                            northStarMeta={{
+                              id: group.meta.id,
+                              title: group.meta.title,
+                              color: group.meta.color,
+                            }}
+                            linkedTaskCount={taskCount}
+                            onOpen={() => setOpenId(goal.id)}
+                            onToggleMilestone={(gId, mId) => toggleMilestone(gId, mId)}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.goals.map((goal) => {
+                        const taskCount = taskCountByGoalId.get(goal.id) || 0;
+
+                        return (
+                          <GoalListRow
+                            key={goal.id}
+                            goal={goal}
+                            northStarMeta={{
+                              id: group.meta.id,
+                              title: group.meta.title,
+                              color: group.meta.color,
+                            }}
+                            linkedTaskCount={taskCount}
+                            onOpen={() => setOpenId(goal.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -535,44 +621,6 @@ export default function GoalsPage() {
 
       {/* Goal Detail Modal */}
       <GoalDetail goal={goals.find((g) => g.id === openId)} onClose={() => setOpenId(null)} />
-
-      {/* Delete North Star Confirmation Dialog */}
-      <Modal
-        open={!!deletingNorthStar}
-        onClose={() => setDeletingNorthStar(null)}
-        title="Delete North Star"
-        size="sm"
-      >
-        <div className="space-y-4 pt-1">
-          <p className="text-[13px] text-muted leading-relaxed">
-            Are you sure you want to delete the North Star{" "}
-            <strong className="text-text font-semibold">&ldquo;{deletingNorthStar?.title}&rdquo;</strong>?
-          </p>
-
-          {deletingNorthStar && deletingNorthStar.goalCount > 0 && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[12px] text-amber-600 dark:text-amber-400">
-              This North Star currently has <strong className="font-semibold">{deletingNorthStar.goalCount}</strong> active {deletingNorthStar.goalCount === 1 ? "goal" : "goals"}. The goals will remain in your system as standalone goals.
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/60">
-            <button
-              type="button"
-              onClick={() => setDeletingNorthStar(null)}
-              className="rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-muted hover:text-text hover:bg-surface-2 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmDeleteNorthStar}
-              className="rounded-full bg-danger px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-danger/90 transition-colors shadow-xs"
-            >
-              Delete North Star
-            </button>
-          </div>
-        </div>
-      </Modal>
     </Hydrate>
   );
 }
