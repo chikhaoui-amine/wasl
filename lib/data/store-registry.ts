@@ -20,6 +20,9 @@ export type StoreKey = keyof typeof STORE_REGISTRY;
 
 export const STORE_KEYS = Object.keys(STORE_REGISTRY) as StoreKey[];
 
+/** Canonical active-store count. Consumers must not count physical snapshots. */
+export const ACTIVE_STORE_COUNT = STORE_KEYS.length;
+
 export const STORE_METADATA = STORE_REGISTRY;
 
 /**
@@ -35,6 +38,8 @@ export const ARCHIVED_STORES = [
 
 export type ArchivedStoreKey = (typeof ARCHIVED_STORES)[number];
 
+export type StoreLifecycle = "active" | "archived" | "unknown";
+
 /**
  * Returns true if the given key is a registered active domain store.
  */
@@ -47,6 +52,13 @@ export function isStoreKey(key: string): key is StoreKey {
  */
 export function isArchivedStoreKey(key: string): key is ArchivedStoreKey {
   return (ARCHIVED_STORES as readonly string[]).includes(key);
+}
+
+/** Classify persisted snapshot names without ever promoting legacy data. */
+export function getStoreLifecycle(key: string): StoreLifecycle {
+  if (isStoreKey(key)) return "active";
+  if (isArchivedStoreKey(key)) return "archived";
+  return "unknown";
 }
 
 /**

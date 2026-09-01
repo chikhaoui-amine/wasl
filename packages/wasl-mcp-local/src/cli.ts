@@ -12,6 +12,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { LoopbackBridge } from "./loopback-bridge.js";
 import { WASL_TOOLS } from "./tool-definitions.js";
+import {
+  MCP_RESULT_OUTPUT_SCHEMA,
+  errorResult,
+  invalidArgumentsFromError,
+  successResult,
+  validationErrorResult,
+  withStructuredValidation,
+} from "./result-contracts.js";
 
 function parseArgs(): { secret?: string; port?: number; allowedOrigins?: string } {
   const args = process.argv.slice(2);
@@ -57,33 +65,28 @@ async function main() {
 
   // Register all WASL local tools
   for (const toolDef of WASL_TOOLS) {
-    server.tool(
+    const inputSchema = withStructuredValidation(toolDef.schema);
+    server.registerTool(
       toolDef.name,
-      toolDef.description,
-      toolDef.schema.shape,
-      async (args: Record<string, unknown>) => {
-        const outcome = await bridge.executeToolCall(toolDef.name, args);
-        if (!outcome.ok) {
-          return {
-            isError: true,
-            content: [
-              {
-                type: "text",
-                text: outcome.error ?? "WASL_LOCAL_OFFLINE: WASL Local PWA is offline.",
-              },
-            ],
-          };
+      {
+        description: toolDef.description,
+        inputSchema,
+        outputSchema: MCP_RESULT_OUTPUT_SCHEMA,
+      },
+      async (args, extra) => {
+        const parsed = toolDef.schema.safeParse(args);
+        if (!parsed.success) {
+          return validationErrorResult(toolDef.name, invalidArgumentsFromError(parsed.error));
         }
 
-        const result = outcome.result;
-        return {
-          content: [
-            {
-              type: "text",
-              text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
-            },
-          ],
-        };
+        const outcome = await bridge.executeToolCall(toolDef.name, parsed.data);
+        if (!outcome.ok) {
+          return errorResult(
+            new Error(outcome.error ?? "WASL_LOCAL_OFFLINE: WASL Local PWA is offline."),
+          );
+        }
+
+        return successResult(toolDef.name, outcome.result, extra.requestId);
       },
     );
   }

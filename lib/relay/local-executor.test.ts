@@ -87,12 +87,12 @@ describe("LocalMcpExecutor", () => {
     expect(task.priority).toBe("high");
 
     // 2. Get tasks
-    const getOutcome = await executor.execute({ toolName: "get_tasks", args: {} }, readWriteProfile);
+    const getOutcome = await executor.execute({ toolName: "tasks_list", args: {} }, readWriteProfile);
     expect(getOutcome.ok).toBe(true);
     if (getOutcome.ok) {
-      const res = getOutcome.result as { tasks: Array<{ id: string; title: string }>; total: number };
-      expect(res.total).toBe(1);
-      expect(res.tasks[0].title).toBe("Complete Local MCP");
+      const res = getOutcome.result as { items: Array<{ id: string; title: string }>; pagination: { total: number } };
+      expect(res.pagination.total).toBe(1);
+      expect(res.items[0].title).toBe("Complete Local MCP");
     }
 
     // 3. Update task
@@ -117,14 +117,14 @@ describe("LocalMcpExecutor", () => {
     expect(deleteOutcome.ok).toBe(true);
 
     // Verify removed from tasks
-    const getAfterDelete = await executor.execute({ toolName: "get_tasks", args: {} }, readWriteProfile);
+    const getAfterDelete = await executor.execute({ toolName: "tasks_list", args: {} }, readWriteProfile);
     if (getAfterDelete.ok) {
-      const res = getAfterDelete.result as { total: number };
-      expect(res.total).toBe(0);
+      const res = getAfterDelete.result as { pagination: { total: number } };
+      expect(res.pagination.total).toBe(0);
     }
 
     // Verify exists in trash
-    const getTrash = await executor.execute({ toolName: "get_trash_items", args: {} }, readWriteProfile);
+    const getTrash = await executor.execute({ toolName: "trash_list", args: {} }, readWriteProfile);
     expect(getTrash.ok).toBe(true);
     if (getTrash.ok) {
       const res = getTrash.result as { items: Array<{ title: string; itemType: string }> };
@@ -132,6 +132,38 @@ describe("LocalMcpExecutor", () => {
       expect(res.items[0].title).toBe("Complete Local MCP");
       expect(res.items[0].itemType).toBe("task");
     }
+  });
+
+  it("supports paginated note list, search, get, and atomic append", async () => {
+    const created = await executor.execute(
+      { toolName: "add_note", args: { title: "Retrieval architecture", body: "Alpha" } },
+      readWriteProfile,
+    );
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const id = (created.result as { note: { id: string } }).note.id;
+
+    const listed = await executor.execute(
+      { toolName: "notes_list", args: { limit: 1 } },
+      readWriteProfile,
+    );
+    const searched = await executor.execute(
+      { toolName: "notes_search", args: { query: "alpha" } },
+      readWriteProfile,
+    );
+    const fetched = await executor.execute(
+      { toolName: "notes_get", args: { id } },
+      readWriteProfile,
+    );
+    const appended = await executor.execute(
+      { toolName: "notes_append", args: { id, body: "Beta" } },
+      readWriteProfile,
+    );
+
+    expect(listed).toMatchObject({ ok: true, result: { items: [{ id }], pagination: { total: 1 } } });
+    expect(searched).toMatchObject({ ok: true, result: { items: [{ id }] } });
+    expect(fetched).toMatchObject({ ok: true, result: { item: { id, body: "Alpha" } } });
+    expect(appended).toMatchObject({ ok: true, result: { note: { id, body: "Alpha\n\nBeta" } } });
   });
 
   // -------------------------------------------------------------------------
@@ -158,10 +190,10 @@ describe("LocalMcpExecutor", () => {
     expect(res2.ok).toBe(true);
     expect(res1).toEqual(res2);
 
-    const getRes = await executor.execute({ toolName: "get_tasks", args: {} }, readWriteProfile);
+    const getRes = await executor.execute({ toolName: "tasks_list", args: {} }, readWriteProfile);
     if (getRes.ok) {
-      const res = getRes.result as { total: number };
-      expect(res.total).toBe(1); // Only 1 task created!
+      const res = getRes.result as { pagination: { total: number } };
+      expect(res.pagination.total).toBe(1); // Only 1 task created!
     }
   });
 
@@ -189,7 +221,7 @@ describe("LocalMcpExecutor", () => {
   it("rejects sensitive domains when not granted in allowedDomains", async () => {
     const journalRes = await executor.execute(
       {
-        toolName: "get_journal",
+        toolName: "journal_list",
         args: {},
       },
       restrictedProfile,
@@ -243,7 +275,7 @@ describe("LocalMcpExecutor", () => {
   // Audit log recording
   // -------------------------------------------------------------------------
   it("records all invocations in the audit log", async () => {
-    await executor.execute({ toolName: "get_tasks", args: {} }, readWriteProfile);
+    await executor.execute({ toolName: "tasks_list", args: {} }, readWriteProfile);
     await executor.execute({ toolName: "add_task", args: { title: "Audit test" } }, readOnlyProfile);
 
     const logs = loadAuditLog();

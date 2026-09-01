@@ -5,4 +5,5 @@
  */
 
 export * from "./loopback-bridge.js";
+export * from "./result-contracts.js";
 export * from "./tool-definitions.js";

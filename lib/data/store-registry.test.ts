@@ -5,11 +5,14 @@ import {
   ARCHIVED_STORES,
   isStoreKey,
   isArchivedStoreKey,
+  getStoreLifecycle,
+  ACTIVE_STORE_COUNT,
   getStoreVersion,
 } from "./store-registry";
 
 describe("Store Registry", () => {
   it("contains exactly the 11 active domain stores", () => {
+    expect(ACTIVE_STORE_COUNT).toBe(11);
     expect(STORE_KEYS).toHaveLength(11);
     expect(Object.keys(STORE_REGISTRY)).toHaveLength(11);
     expect(STORE_KEYS).toContain("lifeos-notes");
@@ -55,5 +58,8 @@ describe("Store Registry", () => {
     expect(isStoreKey("lifeos-notes")).toBe(true);
     expect(isStoreKey("lifeos-unknown")).toBe(false);
     expect(isStoreKey("")).toBe(false);
+    expect(getStoreLifecycle("lifeos-notes")).toBe("active");
+    expect(getStoreLifecycle("lifeos-projects")).toBe("archived");
+    expect(getStoreLifecycle("lifeos-unknown")).toBe("unknown");
   });
 });

@@ -12,21 +12,49 @@ export interface ToolDefinition {
   schema: z.ZodObject<z.ZodRawShape>;
 }
 
+const ISO_DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("ISO day (YYYY-MM-DD)");
+const PAGE_FIELDS = {
+  limit: z.number().int().min(1).max(50).optional().describe("Page size (default 20, maximum 50)"),
+  cursor: z.string().regex(/^\d+$/).optional().describe("Cursor returned by the previous page"),
+};
+const SEARCH_FIELDS = {
+  query: z.string().trim().min(1).max(200).describe("Case-insensitive search text"),
+  ...PAGE_FIELDS,
+};
+const DATE_FIELDS = { from: ISO_DAY.optional(), to: ISO_DAY.optional() };
+
 export const WASL_TOOLS: ToolDefinition[] = [
   // -------------------------------------------------------------------------
   // Tasks
   // -------------------------------------------------------------------------
   {
-    name: "get_tasks",
-    description: "Fetch tasks from WASL Local with optional filtering by date, status, or priority.",
+    name: "tasks_list",
+    description: "List tasks from WASL Local with filters and bounded pagination.",
     schema: z.object({
-      due: z.string().optional().describe("Filter by ISO date (YYYY-MM-DD)"),
+      ...PAGE_FIELDS,
+      due: ISO_DAY.optional(),
       today: z.boolean().optional().describe("Filter for today's tasks"),
-      status: z.enum(["todo", "done", "all"]).optional().describe("Task status filter (default: todo)"),
+      status: z.enum(["todo", "done"]).optional(),
       priority: z.enum(["low", "med", "high"]).optional().describe("Task priority filter"),
-      limit: z.number().max(50).optional().describe("Maximum number of tasks to return (default 20, max 50)"),
-      cursor: z.string().optional().describe("Cursor for pagination"),
+      goalId: z.string().optional(),
     }),
+  },
+  {
+    name: "tasks_search",
+    description: "Search task titles with filters and bounded pagination.",
+    schema: z.object({
+      ...SEARCH_FIELDS,
+      due: ISO_DAY.optional(),
+      today: z.boolean().optional(),
+      status: z.enum(["todo", "done"]).optional(),
+      priority: z.enum(["low", "med", "high"]).optional(),
+      goalId: z.string().optional(),
+    }),
+  },
+  {
+    name: "tasks_get",
+    description: "Get one task by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "add_task",
@@ -34,7 +62,7 @@ export const WASL_TOOLS: ToolDefinition[] = [
     schema: z.object({
       title: z.string().describe("Task title"),
       priority: z.enum(["low", "med", "high"]).optional().describe("Priority level (default: med)"),
-      due: z.string().optional().describe("Due date in ISO format (YYYY-MM-DD)"),
+      due: ISO_DAY.optional(),
       today: z.boolean().optional().describe("Whether this task is scheduled for today (default: true)"),
       weekly: z.boolean().optional().describe("Whether this task is scheduled for this week"),
       goalId: z.string().optional().describe("Optional ID of the associated Goal"),
@@ -50,7 +78,7 @@ export const WASL_TOOLS: ToolDefinition[] = [
       status: z.enum(["todo", "done"]).optional().describe("New status"),
       done: z.boolean().optional().describe("Convenience boolean to mark done/todo"),
       priority: z.enum(["low", "med", "high"]).optional().describe("New priority"),
-      due: z.string().optional().describe("New due date"),
+      due: ISO_DAY.optional(),
       today: z.boolean().optional().describe("Move to / remove from today"),
       weekly: z.boolean().optional().describe("Weekly flag"),
     }),
@@ -66,7 +94,7 @@ export const WASL_TOOLS: ToolDefinition[] = [
     name: "set_daily_focus",
     description: "Set the top 1-3 daily focus tasks for a given date in WASL Local.",
     schema: z.object({
-      date: z.string().optional().describe("ISO date (YYYY-MM-DD), defaults to today"),
+      date: ISO_DAY.optional(),
       taskIds: z.array(z.string()).max(3).describe("Array of 1-3 Task IDs"),
     }),
   },
@@ -75,14 +103,28 @@ export const WASL_TOOLS: ToolDefinition[] = [
   // Notes
   // -------------------------------------------------------------------------
   {
-    name: "get_notes",
-    description: "Fetch notes from WASL Local with optional category/tag filter and pagination.",
+    name: "notes_list",
+    description: "List compact note summaries with filters and bounded pagination.",
     schema: z.object({
+      ...PAGE_FIELDS,
       tag: z.string().optional().describe("Filter by category/tag name"),
-      query: z.string().optional().describe("Search term in title or body"),
-      limit: z.number().max(50).optional().describe("Max items (default 20, max 50)"),
-      cursor: z.string().optional().describe("Pagination cursor"),
+      contentType: z.enum(["note", "read", "listen", "idea"]).optional(),
+      pinned: z.boolean().optional(),
     }),
+  },
+  {
+    name: "notes_search",
+    description: "Search note titles, bodies, tags, and authors.",
+    schema: z.object({
+      ...SEARCH_FIELDS,
+      tag: z.string().optional(),
+      contentType: z.enum(["note", "read", "listen", "idea"]).optional(),
+    }),
+  },
+  {
+    name: "notes_get",
+    description: "Get one complete note by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "add_note",
@@ -109,6 +151,15 @@ export const WASL_TOOLS: ToolDefinition[] = [
     }),
   },
   {
+    name: "notes_append",
+    description: "Atomically append markdown to an existing note by exact ID.",
+    schema: z.object({
+      id: z.string().min(1),
+      body: z.string().min(1),
+      separator: z.enum(["none", "newline", "blank_line"]).optional(),
+    }),
+  },
+  {
     name: "delete_note",
     description: "Move a note to Trash in WASL Local.",
     schema: z.object({
@@ -120,12 +171,31 @@ export const WASL_TOOLS: ToolDefinition[] = [
   // Goals
   // -------------------------------------------------------------------------
   {
-    name: "get_goals",
-    description: "Fetch goals from WASL Local.",
+    name: "goals_list",
+    description: "List compact goal summaries with filters and pagination.",
     schema: z.object({
-      status: z.enum(["active", "completed", "archived", "all"]).optional(),
+      ...PAGE_FIELDS,
+      status: z.enum(["active", "paused", "completed", "later"]).optional(),
       category: z.string().optional().describe("Goal category"),
+      type: z.enum(["north_star", "yearly_outcome", "monthly_outcome", "challenge"]).optional(),
+      targetYear: z.number().int().min(2000).max(2200).optional(),
     }),
+  },
+  {
+    name: "goals_search",
+    description: "Search goals by title or category.",
+    schema: z.object({
+      ...SEARCH_FIELDS,
+      status: z.enum(["active", "paused", "completed", "later"]).optional(),
+      category: z.string().optional(),
+      type: z.enum(["north_star", "yearly_outcome", "monthly_outcome", "challenge"]).optional(),
+      targetYear: z.number().int().min(2000).max(2200).optional(),
+    }),
+  },
+  {
+    name: "goals_get",
+    description: "Get one complete goal by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "add_goal",
@@ -144,7 +214,7 @@ export const WASL_TOOLS: ToolDefinition[] = [
     schema: z.object({
       id: z.string().describe("Goal ID"),
       title: z.string().optional(),
-      status: z.enum(["active", "completed", "archived"]).optional(),
+      status: z.enum(["active", "paused", "completed", "later"]).optional(),
       progress: z.number().min(0).max(100).optional().describe("Progress percentage (0-100)"),
       targetDate: z.string().optional(),
       description: z.string().optional(),
@@ -162,15 +232,25 @@ export const WASL_TOOLS: ToolDefinition[] = [
   // Habits
   // -------------------------------------------------------------------------
   {
-    name: "get_habits",
-    description: "Fetch habits and completion logs from WASL Local.",
-    schema: z.object({}),
+    name: "habits_list",
+    description: "List compact habit summaries with pagination.",
+    schema: z.object(PAGE_FIELDS),
+  },
+  {
+    name: "habits_search",
+    description: "Search habits by title.",
+    schema: z.object(SEARCH_FIELDS),
+  },
+  {
+    name: "habits_get",
+    description: "Get one habit and an optionally date-filtered completion log.",
+    schema: z.object({ id: z.string().min(1), ...DATE_FIELDS }),
   },
   {
     name: "add_habit",
     description: "Add a new habit in WASL Local.",
     schema: z.object({
-      name: z.string().describe("Habit name"),
+      title: z.string().describe("Habit title"),
       targetPerWeek: z.number().min(1).max(7).optional().describe("Target completions per week (1-7, default 7)"),
       color: z.string().optional().describe("Hex color or color name"),
       icon: z.string().optional().describe("Icon name"),
@@ -198,22 +278,32 @@ export const WASL_TOOLS: ToolDefinition[] = [
   // Calendar Blocks
   // -------------------------------------------------------------------------
   {
-    name: "get_calendar_blocks",
-    description: "Fetch time-blocked calendar schedule from WASL Local.",
+    name: "calendar_list",
+    description: "List calendar blocks using ISO days and HH:mm times.",
     schema: z.object({
-      date: z.string().optional().describe("Specific date (YYYY-MM-DD)"),
-      startDate: z.string().optional().describe("Start date (YYYY-MM-DD)"),
-      endDate: z.string().optional().describe("End date (YYYY-MM-DD)"),
+      ...PAGE_FIELDS,
+      date: ISO_DAY.optional(),
+      ...DATE_FIELDS,
     }),
+  },
+  {
+    name: "calendar_search",
+    description: "Search calendar block titles with date filters.",
+    schema: z.object({ ...SEARCH_FIELDS, date: ISO_DAY.optional(), ...DATE_FIELDS }),
+  },
+  {
+    name: "calendar_get",
+    description: "Get one calendar block by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "add_calendar_block",
     description: "Add a calendar time-block in WASL Local.",
     schema: z.object({
       title: z.string().describe("Block title"),
-      date: z.string().describe("ISO date (YYYY-MM-DD)"),
-      startTime: z.string().describe("Start time (HH:mm format, 24h)"),
-      endTime: z.string().describe("End time (HH:mm format, 24h)"),
+      date: ISO_DAY,
+      startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
       category: z.string().optional().describe("Block category / color type"),
       taskId: z.string().optional().describe("Associated Task ID if linked to a task"),
       idempotencyKey: z.string().optional(),
@@ -231,21 +321,31 @@ export const WASL_TOOLS: ToolDefinition[] = [
   // Sensitive Domains (Permission Gated)
   // -------------------------------------------------------------------------
   {
-    name: "get_journal",
-    description: "Fetch journal entries from WASL Local (requires explicit Journal permission in Settings).",
+    name: "journal_list",
+    description: "List compact journal summaries with mood/date filters (requires Journal permission).",
     schema: z.object({
-      from: z.string().optional().describe("Start date (YYYY-MM-DD)"),
-      to: z.string().optional().describe("End date (YYYY-MM-DD)"),
-      limit: z.number().max(30).optional(),
+      ...PAGE_FIELDS,
+      ...DATE_FIELDS,
+      mood: z.enum(["great", "good", "okay", "low", "rough"]).optional(),
     }),
+  },
+  {
+    name: "journal_search",
+    description: "Search journal bodies with bounded results (requires Journal permission).",
+    schema: z.object({ ...SEARCH_FIELDS, ...DATE_FIELDS }),
+  },
+  {
+    name: "journal_get",
+    description: "Get one complete journal entry by exact ID (requires Journal permission).",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "add_journal_entry",
     description: "Add a journal entry in WASL Local.",
     schema: z.object({
-      date: z.string().describe("Date of the entry (YYYY-MM-DD)"),
-      entry: z.string().describe("Markdown reflection text"),
-      mood: z.string().optional().describe("Optional mood indicator"),
+      date: ISO_DAY,
+      body: z.string().min(1).describe("Markdown reflection text"),
+      mood: z.enum(["great", "good", "okay", "low", "rough"]).optional(),
       idempotencyKey: z.string().optional(),
     }),
   },
@@ -261,19 +361,19 @@ export const WASL_TOOLS: ToolDefinition[] = [
     name: "add_money_account",
     description: "Add a financial account or card in WASL Local.",
     schema: z.object({
-      name: z.string().describe("Account name (e.g. Main Checking, Visa Card, Cash)"),
-      type: z.enum(["bank", "card", "cash", "savings", "investment", "wallet"]).describe("Account type"),
-      initialBalance: z.number().optional().describe("Starting balance (default 0)"),
-      currency: z.string().optional().describe("Currency code"),
-      color: z.string().optional().describe("Color theme (e.g. emerald, blue, indigo, purple, amber, rose, slate)"),
-      icon: z.string().optional().describe("Icon preset"),
+      name: z.string(),
+      type: z.enum(["bank", "card", "cash", "savings", "investment", "wallet"]),
+      initialBalance: z.number().optional(),
+      currency: z.string().optional(),
+      color: z.string().optional(),
+      icon: z.string().optional(),
     }),
   },
   {
     name: "update_money_account",
     description: "Update a financial account or card in WASL Local.",
     schema: z.object({
-      id: z.string().describe("Account ID or unique name"),
+      id: z.string(),
       name: z.string().optional(),
       type: z.enum(["bank", "card", "cash", "savings", "investment", "wallet"]).optional(),
       initialBalance: z.number().optional(),
@@ -285,9 +385,22 @@ export const WASL_TOOLS: ToolDefinition[] = [
   {
     name: "delete_money_account",
     description: "Delete a financial account or card in WASL Local.",
-    schema: z.object({
-      id: z.string().describe("Account ID or unique name to delete"),
-    }),
+    schema: z.object({ id: z.string() }),
+  },
+  {
+    name: "transactions_list",
+    description: "List financial transactions with date/category/account filters.",
+    schema: z.object({ ...PAGE_FIELDS, ...DATE_FIELDS, category: z.string().optional(), accountId: z.string().optional() }),
+  },
+  {
+    name: "transactions_search",
+    description: "Search transaction titles and categories.",
+    schema: z.object({ ...SEARCH_FIELDS, ...DATE_FIELDS, category: z.string().optional(), accountId: z.string().optional() }),
+  },
+  {
+    name: "transactions_get",
+    description: "Get one financial transaction by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "add_money_transaction",
@@ -296,10 +409,10 @@ export const WASL_TOOLS: ToolDefinition[] = [
       amount: z.number().describe("Transaction amount"),
       type: z.enum(["income", "expense", "transfer"]).describe("Transaction type"),
       category: z.string().describe("Transaction category"),
-      date: z.string().describe("Transaction date (YYYY-MM-DD)"),
-      description: z.string().optional(),
-      accountId: z.string().optional().describe("Source account ID"),
-      transferAccountId: z.string().optional().describe("Destination account ID if transfer"),
+      date: ISO_DAY,
+      title: z.string().optional(),
+      accountId: z.string().optional(),
+      transferAccountId: z.string().optional(),
       idempotencyKey: z.string().optional(),
     }),
   },
@@ -307,11 +420,11 @@ export const WASL_TOOLS: ToolDefinition[] = [
     name: "transfer_money",
     description: "Transfer money between two accounts in WASL Local.",
     schema: z.object({
-      fromAccountId: z.string().describe("Source account ID"),
-      toAccountId: z.string().describe("Destination account ID"),
-      amount: z.number().positive().describe("Amount to transfer"),
-      description: z.string().optional().describe("Transfer note/label"),
-      date: z.string().optional().describe("ISO date (YYYY-MM-DD)"),
+      fromAccountId: z.string(),
+      toAccountId: z.string(),
+      amount: z.number().positive(),
+      title: z.string().optional(),
+      date: ISO_DAY.optional(),
     }),
   },
   {
@@ -323,12 +436,27 @@ export const WASL_TOOLS: ToolDefinition[] = [
     }),
   },
   {
+    name: "workouts_list",
+    description: "List workout summaries with sport/date filters.",
+    schema: z.object({ ...PAGE_FIELDS, ...DATE_FIELDS, sport: z.string().optional() }),
+  },
+  {
+    name: "workouts_search",
+    description: "Search workouts by sport or notes.",
+    schema: z.object({ ...SEARCH_FIELDS, ...DATE_FIELDS, sport: z.string().optional() }),
+  },
+  {
+    name: "workouts_get",
+    description: "Get one complete workout by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
+  },
+  {
     name: "log_workout",
     description: "Log a completed workout session in WASL Local.",
     schema: z.object({
       title: z.string().describe("Workout title"),
-      date: z.string().describe("Workout date (YYYY-MM-DD)"),
-      durationMin: z.number().optional().describe("Duration in minutes"),
+      date: ISO_DAY,
+      durationMinutes: z.number().positive().optional(),
       notes: z.string().optional(),
       idempotencyKey: z.string().optional(),
     }),
@@ -337,11 +465,16 @@ export const WASL_TOOLS: ToolDefinition[] = [
   // Cross-Domain Search & Trash
   // -------------------------------------------------------------------------
   {
-    name: "get_trash_items",
-    description: "View items currently in Trash in WASL Local.",
+    name: "trash_list",
+    description: "List compact Trash items with bounded pagination.",
     schema: z.object({
-      limit: z.number().max(50).optional(),
+      ...PAGE_FIELDS,
     }),
+  },
+  {
+    name: "trash_get",
+    description: "Get one Trash item by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "restore_trash_item",
@@ -351,14 +484,34 @@ export const WASL_TOOLS: ToolDefinition[] = [
     }),
   },
   {
-    name: "get_recurring_tasks",
-    description: "Fetch recurring task templates in WASL Local.",
-    schema: z.object({}),
+    name: "recurring_list",
+    description: "List recurring task templates with pagination.",
+    schema: z.object({ ...PAGE_FIELDS, frequency: z.enum(["daily", "weekly", "monthly", "custom"]).optional() }),
   },
   {
-    name: "get_topics",
-    description: "Fetch learning topics and progress in WASL Local.",
-    schema: z.object({}),
+    name: "recurring_search",
+    description: "Search recurring task templates by title.",
+    schema: z.object({ ...SEARCH_FIELDS, frequency: z.enum(["daily", "weekly", "monthly", "custom"]).optional() }),
+  },
+  {
+    name: "recurring_get",
+    description: "Get one recurring task template by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
+  },
+  {
+    name: "topics_list",
+    description: "List learning topics without embedding roadmaps, resources, or notes.",
+    schema: z.object(PAGE_FIELDS),
+  },
+  {
+    name: "topics_search",
+    description: "Search learning topics by title or description.",
+    schema: z.object(SEARCH_FIELDS),
+  },
+  {
+    name: "topics_get",
+    description: "Get one complete learning topic by exact ID.",
+    schema: z.object({ id: z.string().min(1) }),
   },
   {
     name: "search_all",

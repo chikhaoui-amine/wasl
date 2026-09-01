@@ -6,7 +6,7 @@
  * Architecture & Guarantees:
  * - Executes directly against DataAdapter / LocalAdapter and IndexedDB.
  * - Reuses existing domain operations, migrations, and validation.
- * - Full support for all 12 active stores.
+ * - Full support for all 11 active stores.
  * - Zero raw IndexedDB access or unrestricted code execution.
  * - Stable UUID generation & write idempotency support.
  * - Enforces client permissions (Read-only vs Read+Write) and sensitive domain restrictions.
@@ -44,6 +44,51 @@ export type McpExecutorOutcome =
 // Idempotency cache (in-memory, sliding window 100 entries)
 const idempotencyCache = new Map<string, unknown>();
 
+interface PageInput {
+  limit?: unknown;
+  cursor?: unknown;
+}
+
+function page<T>(items: T[], args: PageInput) {
+  const limit = Math.min(Math.max(Math.trunc(Number(args.limit ?? 20)), 1), 50);
+  const offset = Math.max(Math.trunc(Number(args.cursor ?? 0)), 0);
+  const pageItems = items.slice(offset, offset + limit);
+  return {
+    items: pageItems,
+    pagination: {
+      limit,
+      total: items.length,
+      nextCursor: offset + pageItems.length < items.length ? String(offset + pageItems.length) : null,
+    },
+  };
+}
+
+function includesText(query: unknown, ...values: unknown[]) {
+  const needle = String(query ?? "").trim().toLocaleLowerCase();
+  return values.some((value) => typeof value === "string" && value.toLocaleLowerCase().includes(needle));
+}
+
+function filterDates<T extends { date?: string }>(items: T[], args: Record<string, unknown>) {
+  return items.filter((item) =>
+    (!args.from || String(item.date ?? "") >= String(args.from)) &&
+    (!args.to || String(item.date ?? "") <= String(args.to)),
+  );
+}
+
+function exactById<T extends { id: string }>(items: T[], id: unknown, label: string) {
+  const value = String(id ?? "");
+  const item = items.find((candidate) => candidate.id === value);
+  if (!item) throw new Error(`${label} '${value}' not found.`);
+  return item;
+}
+
+function decimalHourToTime(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const hours = Math.floor(value);
+  const minutes = Math.round((value - hours) * 60);
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
 function getToolDomain(toolName: string): DomainName {
   if (toolName.includes("task") || toolName === "set_daily_focus") return "tasks";
   if (toolName.includes("note")) return "notes";
@@ -67,7 +112,8 @@ function isWriteTool(toolName: string): boolean {
     toolName.startsWith("set_") ||
     toolName.startsWith("toggle_") ||
     toolName.startsWith("log_") ||
-    toolName.startsWith("restore_")
+    toolName.startsWith("restore_") ||
+    toolName.endsWith("_append")
   );
 }
 
@@ -196,21 +242,33 @@ export class LocalMcpExecutor {
       // ---------------------------------------------------------------------
       // Tasks
       // ---------------------------------------------------------------------
-      case "get_tasks": {
+      case "tasks_list": {
         const doc = await this.adapter.getStore("lifeos-tasks");
-        let tasks = doc?.state.tasks ?? [];
+        let tasks = (doc?.state.tasks ?? []).map(normalizeTask);
         if (args.status === "todo") tasks = tasks.filter((t) => t.status === "todo");
         else if (args.status === "done") tasks = tasks.filter((t) => t.status === "done");
         if (args.priority) tasks = tasks.filter((t) => t.priority === args.priority);
         if (args.due) tasks = tasks.filter((t) => t.due === args.due);
         if (args.today) tasks = tasks.filter((t) => t.today);
 
-        const limit = Math.min(Number(args.limit ?? 20), 50);
-        const cursor = Number(args.cursor ?? 0);
-        const paged = tasks.slice(cursor, cursor + limit);
-        const nextCursor = cursor + limit < tasks.length ? String(cursor + limit) : null;
+        if (args.goalId) tasks = tasks.filter((t) => t.goalId === args.goalId);
+        return page(tasks, args);
+      }
 
-        return { tasks: paged, total: tasks.length, nextCursor };
+      case "tasks_search": {
+        const doc = await this.adapter.getStore("lifeos-tasks");
+        let tasks = (doc?.state.tasks ?? []).map(normalizeTask);
+        if (args.status) tasks = tasks.filter((task) => task.status === args.status);
+        if (args.priority) tasks = tasks.filter((task) => task.priority === args.priority);
+        if (args.due) tasks = tasks.filter((task) => task.due === args.due);
+        if (args.today !== undefined) tasks = tasks.filter((task) => task.today === args.today);
+        if (args.goalId) tasks = tasks.filter((task) => task.goalId === args.goalId);
+        return page(tasks.filter((task) => includesText(args.query, task.title)), args);
+      }
+
+      case "tasks_get": {
+        const doc = await this.adapter.getStore("lifeos-tasks");
+        return { item: normalizeTask(exactById(doc?.state.tasks ?? [], args.id, "Task")) };
       }
 
       case "add_task": {
@@ -321,24 +379,51 @@ export class LocalMcpExecutor {
       // ---------------------------------------------------------------------
       // Notes
       // ---------------------------------------------------------------------
-      case "get_notes": {
+      case "notes_list": {
         const doc = await this.adapter.getStore("lifeos-notes");
-        let notes = doc?.state.notes ?? [];
+        let notes = [...(doc?.state.notes ?? [])];
         if (args.tag) {
           notes = notes.filter((n) => n.tag?.toLowerCase() === String(args.tag).toLowerCase());
         }
-        if (args.query) {
-          const q = String(args.query).toLowerCase();
-          notes = notes.filter(
-            (n) => n.title?.toLowerCase().includes(q) || n.body?.toLowerCase().includes(q),
-          );
-        }
+        if (args.contentType) notes = notes.filter((note) => (note.contentType ?? "note") === args.contentType);
+        if (args.pinned !== undefined) notes = notes.filter((note) => note.pinned === args.pinned);
+        notes.sort((a, b) => b.updatedAt - a.updatedAt);
+        return page(notes.map((note) => ({
+          id: note.id,
+          title: note.title,
+          preview: note.body.slice(0, 240),
+          tag: note.tag,
+          pinned: note.pinned,
+          contentType: note.contentType ?? "note",
+          author: note.author,
+          sourceUrl: note.sourceUrl,
+          updatedAt: new Date(note.updatedAt).toISOString(),
+        })), args);
+      }
 
-        const limit = Math.min(Number(args.limit ?? 20), 50);
-        const cursor = Number(args.cursor ?? 0);
-        const paged = notes.slice(cursor, cursor + limit);
+      case "notes_search": {
+        const doc = await this.adapter.getStore("lifeos-notes");
+        let notes = (doc?.state.notes ?? []).filter((note) =>
+          includesText(args.query, note.title, note.body, note.tag, note.author),
+        );
+        if (args.tag) notes = notes.filter((note) => note.tag.toLocaleLowerCase() === String(args.tag).toLocaleLowerCase());
+        if (args.contentType) notes = notes.filter((note) => (note.contentType ?? "note") === args.contentType);
+        return page(notes.map((note) => ({
+          id: note.id,
+          title: note.title,
+          preview: note.body.slice(0, 240),
+          tag: note.tag,
+          pinned: note.pinned,
+          contentType: note.contentType ?? "note",
+          author: note.author,
+          sourceUrl: note.sourceUrl,
+          updatedAt: new Date(note.updatedAt).toISOString(),
+        })), args);
+      }
 
-        return { notes: paged, total: notes.length };
+      case "notes_get": {
+        const doc = await this.adapter.getStore("lifeos-notes");
+        return { item: exactById(doc?.state.notes ?? [], args.id, "Note") };
       }
 
       case "add_note": {
@@ -387,6 +472,28 @@ export class LocalMcpExecutor {
         return { success: true, note: updatedNote };
       }
 
+      case "notes_append": {
+        const id = String(args.id);
+        let updatedNote: unknown = null;
+        await this.adapter.mutateStore("lifeos-notes", (current) => ({
+          ...current,
+          notes: (current.notes ?? []).map((note) => {
+            if (note.id !== id) return note;
+            const separator = note.body
+              ? args.separator === "none" ? "" : args.separator === "newline" ? "\n" : "\n\n"
+              : "";
+            updatedNote = {
+              ...note,
+              body: `${note.body}${separator}${String(args.body)}`,
+              updatedAt: Date.now(),
+            };
+            return updatedNote as typeof note;
+          }),
+        }));
+        if (!updatedNote) throw new Error(`Note '${id}' not found.`);
+        return { success: true, note: updatedNote };
+      }
+
       case "delete_note": {
         const id = String(args.id);
         const notesDoc = await this.adapter.getStore("lifeos-notes");
@@ -417,16 +524,53 @@ export class LocalMcpExecutor {
       // ---------------------------------------------------------------------
       // Goals
       // ---------------------------------------------------------------------
-      case "get_goals": {
+      case "goals_list": {
         const doc = await this.adapter.getStore("lifeos-goals");
-        let goals = doc?.state.goals ?? [];
-        if (args.status && args.status !== "all") {
-          goals = goals.filter((g) => g.status === args.status);
-        }
+        let goals = (doc?.state.goals ?? []).map(normalizeGoal);
+        if (args.status) goals = goals.filter((g) => g.status === args.status);
         if (args.category) {
           goals = goals.filter((g) => g.category?.toLowerCase() === String(args.category).toLowerCase());
         }
-        return { goals, total: goals.length };
+        if (args.type) goals = goals.filter((g) => g.type === args.type);
+        if (args.targetYear) goals = goals.filter((g) => g.targetYear === args.targetYear);
+        return page(goals.map((goal) => ({
+          id: goal.id,
+          title: goal.title,
+          status: goal.status,
+          type: goal.type,
+          category: goal.category,
+          targetYear: goal.targetYear ?? null,
+          targetMonth: goal.targetMonth ?? null,
+          progress: goal.manualProgress,
+          milestoneCount: goal.milestones.length,
+          completedMilestoneCount: goal.milestones.filter((milestone) => milestone.done).length,
+        })), args);
+      }
+
+      case "goals_search": {
+        const doc = await this.adapter.getStore("lifeos-goals");
+        let goals = (doc?.state.goals ?? []).map(normalizeGoal);
+        if (args.status) goals = goals.filter((goal) => goal.status === args.status);
+        if (args.category) goals = goals.filter((goal) => goal.category === args.category);
+        if (args.type) goals = goals.filter((goal) => goal.type === args.type);
+        if (args.targetYear) goals = goals.filter((goal) => goal.targetYear === args.targetYear);
+        return page(goals.filter((goal) => includesText(args.query, goal.title, goal.category)).map((goal) => ({
+          id: goal.id,
+          title: goal.title,
+          status: goal.status,
+          type: goal.type,
+          category: goal.category,
+          targetYear: goal.targetYear ?? null,
+          targetMonth: goal.targetMonth ?? null,
+          progress: goal.manualProgress,
+          milestoneCount: goal.milestones.length,
+          completedMilestoneCount: goal.milestones.filter((milestone) => milestone.done).length,
+        })), args);
+      }
+
+      case "goals_get": {
+        const doc = await this.adapter.getStore("lifeos-goals");
+        return { item: normalizeGoal(exactById(doc?.state.goals ?? [], args.id, "Goal")) };
       }
 
       case "add_goal": {
@@ -504,15 +648,48 @@ export class LocalMcpExecutor {
       // ---------------------------------------------------------------------
       // Habits
       // ---------------------------------------------------------------------
-      case "get_habits": {
+      case "habits_list": {
         const doc = await this.adapter.getStore("lifeos-habits");
-        return { habits: doc?.state.habits ?? [] };
+        return page((doc?.state.habits ?? []).map(normalizeHabit).map((habit) => ({
+          id: habit.id,
+          title: habit.name,
+          targetPerWeek: habit.targetPerWeek,
+          color: habit.color,
+          icon: habit.icon,
+          completedCount: Object.values(habit.log).filter(Boolean).length,
+          createdAt: habit.createdAt,
+        })), args);
+      }
+
+      case "habits_search": {
+        const doc = await this.adapter.getStore("lifeos-habits");
+        const habits = (doc?.state.habits ?? []).map(normalizeHabit)
+          .filter((habit) => includesText(args.query, habit.name))
+          .map((habit) => ({
+            id: habit.id,
+            title: habit.name,
+            targetPerWeek: habit.targetPerWeek,
+            color: habit.color,
+            icon: habit.icon,
+            completedCount: Object.values(habit.log).filter(Boolean).length,
+            createdAt: habit.createdAt,
+          }));
+        return page(habits, args);
+      }
+
+      case "habits_get": {
+        const doc = await this.adapter.getStore("lifeos-habits");
+        const habit = normalizeHabit(exactById(doc?.state.habits ?? [], args.id, "Habit"));
+        const log = Object.fromEntries(Object.entries(habit.log).filter(([date]) =>
+          (!args.from || date >= String(args.from)) && (!args.to || date <= String(args.to)),
+        ));
+        return { item: { ...habit, title: habit.name, log } };
       }
 
       case "add_habit": {
         const newHabit: Habit = normalizeHabit({
           id: crypto.randomUUID(),
-          name: String(args.name ?? "New Habit"),
+          name: String(args.title ?? "New Habit"),
           icon: typeof args.icon === "string" ? args.icon : "activity",
           targetPerWeek: Number(args.targetPerWeek ?? 7),
           color: typeof args.color === "string" ? args.color : "#37c9b7",
@@ -582,11 +759,50 @@ export class LocalMcpExecutor {
       // ---------------------------------------------------------------------
       // Calendar Blocks
       // ---------------------------------------------------------------------
-      case "get_calendar_blocks": {
+      case "calendar_list": {
+        const doc = await this.adapter.getStore("lifeos-blocks");
+        let blocks = [...(doc?.state.blocks ?? [])];
+        if (args.date) blocks = blocks.filter((b) => b.date === args.date);
+        if (args.from) blocks = blocks.filter((b) => b.date >= String(args.from));
+        if (args.to) blocks = blocks.filter((b) => b.date <= String(args.to));
+        blocks.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+        return page(blocks.map((block) => ({
+          id: block.id,
+          title: block.title,
+          date: block.date,
+          startTime: decimalHourToTime(block.start),
+          endTime: decimalHourToTime(block.end),
+          color: block.color,
+        })), args);
+      }
+
+      case "calendar_search": {
         const doc = await this.adapter.getStore("lifeos-blocks");
         let blocks = doc?.state.blocks ?? [];
-        if (args.date) blocks = blocks.filter((b) => b.date === args.date);
-        return { blocks, view: doc?.state.view ?? "week" };
+        if (args.date) blocks = blocks.filter((block) => block.date === args.date);
+        if (args.from) blocks = blocks.filter((block) => block.date >= String(args.from));
+        if (args.to) blocks = blocks.filter((block) => block.date <= String(args.to));
+        return page(blocks.filter((block) => includesText(args.query, block.title)).map((block) => ({
+          id: block.id,
+          title: block.title,
+          date: block.date,
+          startTime: decimalHourToTime(block.start),
+          endTime: decimalHourToTime(block.end),
+          color: block.color,
+        })), args);
+      }
+
+      case "calendar_get": {
+        const doc = await this.adapter.getStore("lifeos-blocks");
+        const block = exactById(doc?.state.blocks ?? [], args.id, "Calendar block");
+        return { item: {
+          id: block.id,
+          title: block.title,
+          date: block.date,
+          startTime: decimalHourToTime(block.start),
+          endTime: decimalHourToTime(block.end),
+          color: block.color,
+        } };
       }
 
       case "add_calendar_block": {
@@ -594,8 +810,8 @@ export class LocalMcpExecutor {
           id: crypto.randomUUID(),
           title: String(args.title ?? "New Block"),
           date: String(args.date ?? todayISO()),
-          start: typeof args.start === "number" ? args.start : 9,
-          end: typeof args.end === "number" ? args.end : 10,
+          start: typeof args.startTime === "string" ? Number(args.startTime.slice(0, 2)) + Number(args.startTime.slice(3, 5)) / 60 : 9,
+          end: typeof args.endTime === "string" ? Number(args.endTime.slice(0, 2)) + Number(args.endTime.slice(3, 5)) / 60 : 10,
           color: String(args.color ?? "var(--accent)"),
         };
 
@@ -619,13 +835,40 @@ export class LocalMcpExecutor {
       // ---------------------------------------------------------------------
       // Journal (Sensitive)
       // ---------------------------------------------------------------------
-      case "get_journal": {
+      case "journal_list": {
         const doc = await this.adapter.getStore("lifeos-journal");
-        let entries = doc?.state.entries ?? [];
-        if (args.from) entries = entries.filter((e) => e.date >= String(args.from));
-        if (args.to) entries = entries.filter((e) => e.date <= String(args.to));
-        const limit = Math.min(Number(args.limit ?? 20), 50);
-        return { entries: entries.slice(0, limit), total: entries.length };
+        let entries = filterDates(doc?.state.entries ?? [], args);
+        if (args.mood) entries = entries.filter((entry) => entry.mood === args.mood);
+        entries.sort((a, b) => b.date.localeCompare(a.date));
+        return page(entries.map((entry) => ({
+          id: entry.id,
+          title: `Journal — ${entry.date}`,
+          date: entry.date,
+          mood: entry.mood,
+          preview: entry.body.slice(0, 240),
+          createdAt: new Date(entry.createdAt).toISOString(),
+        })), args);
+      }
+
+      case "journal_search": {
+        const doc = await this.adapter.getStore("lifeos-journal");
+        const entries = filterDates(doc?.state.entries ?? [], args)
+          .filter((entry) => includesText(args.query, entry.body, entry.date, entry.mood))
+          .map((entry) => ({
+            id: entry.id,
+            title: `Journal — ${entry.date}`,
+            date: entry.date,
+            mood: entry.mood,
+            preview: entry.body.slice(0, 240),
+            createdAt: new Date(entry.createdAt).toISOString(),
+          }));
+        return page(entries, args);
+      }
+
+      case "journal_get": {
+        const doc = await this.adapter.getStore("lifeos-journal");
+        const entry = exactById(doc?.state.entries ?? [], args.id, "Journal entry");
+        return { item: { ...entry, title: `Journal — ${entry.date}` } };
       }
 
       case "add_journal_entry": {
@@ -633,7 +876,7 @@ export class LocalMcpExecutor {
         const newEntry: JournalEntry = {
           id: crypto.randomUUID(),
           date: String(args.date ?? todayISO()),
-          body: String(args.entry ?? args.body ?? ""),
+          body: String(args.body ?? ""),
           mood: moodVal,
           createdAt: Date.now(),
         };
@@ -660,76 +903,115 @@ export class LocalMcpExecutor {
       }
 
       case "add_money_account": {
-        const newAccount: Account = {
+        const account: Account = {
           id: crypto.randomUUID(),
-          name: String(args.name || "New Account"),
-          type: (args.type as AccountType) || "bank",
+          name: String(args.name),
+          type: args.type as AccountType,
           initialBalance: Number(args.initialBalance ?? 0),
           currency: typeof args.currency === "string" ? args.currency : undefined,
           color: typeof args.color === "string" ? args.color : "emerald",
           icon: typeof args.icon === "string" ? args.icon : "landmark",
           createdAt: todayISO(),
         };
-
         await this.adapter.mutateStore("lifeos-money", (current) => ({
           ...current,
-          accounts: [...(current.accounts ?? []), newAccount],
+          accounts: [...(current.accounts ?? []), account],
         }));
-
-        return { success: true, account: newAccount };
+        return { success: true, account };
       }
 
       case "update_money_account": {
-        const targetId = String(args.id);
+        const id = String(args.id);
         let updatedAccount: Account | null = null;
-        await this.adapter.mutateStore("lifeos-money", (current) => {
-          const accounts = current.accounts ?? [];
-          const updated = accounts.map((a: Account) => {
-            if (a.id === targetId || a.name.toLowerCase() === targetId.toLowerCase()) {
-              updatedAccount = {
-                ...a,
-                ...(args.name !== undefined ? { name: String(args.name) } : {}),
-                ...(args.type !== undefined ? { type: args.type as AccountType } : {}),
-                ...(args.initialBalance !== undefined ? { initialBalance: Number(args.initialBalance) } : {}),
-                ...(args.currency !== undefined ? { currency: String(args.currency) } : {}),
-                ...(args.color !== undefined ? { color: String(args.color) } : {}),
-                ...(args.icon !== undefined ? { icon: String(args.icon) } : {}),
-              };
-              return updatedAccount;
-            }
-            return a;
-          });
-          return { ...current, accounts: updated };
-        });
-        if (!updatedAccount) throw new Error(`Account '${targetId}' not found.`);
+        await this.adapter.mutateStore("lifeos-money", (current) => ({
+          ...current,
+          accounts: (current.accounts ?? []).map((account) => {
+            if (account.id !== id && account.name.toLocaleLowerCase() !== id.toLocaleLowerCase()) return account;
+            updatedAccount = {
+              ...account,
+              ...(args.name !== undefined ? { name: String(args.name) } : {}),
+              ...(args.type !== undefined ? { type: args.type as AccountType } : {}),
+              ...(args.initialBalance !== undefined ? { initialBalance: Number(args.initialBalance) } : {}),
+              ...(args.currency !== undefined ? { currency: String(args.currency) } : {}),
+              ...(args.color !== undefined ? { color: String(args.color) } : {}),
+              ...(args.icon !== undefined ? { icon: String(args.icon) } : {}),
+            };
+            return updatedAccount;
+          }),
+        }));
+        if (!updatedAccount) throw new Error(`Account '${id}' not found.`);
         return { success: true, account: updatedAccount };
       }
 
       case "delete_money_account": {
-        const targetId = String(args.id);
+        const id = String(args.id);
         let deletedId: string | null = null;
         await this.adapter.mutateStore("lifeos-money", (current) => {
-          const accounts = current.accounts ?? [];
-          const match = accounts.find((a: Account) => a.id === targetId || a.name.toLowerCase() === targetId.toLowerCase());
-          if (!match) return current;
-          deletedId = match.id;
-          return {
-            ...current,
-            accounts: accounts.filter((a: Account) => a.id !== deletedId),
-          };
+          const target = (current.accounts ?? []).find((account) =>
+            account.id === id || account.name.toLocaleLowerCase() === id.toLocaleLowerCase(),
+          );
+          if (!target) return current;
+          deletedId = target.id;
+          return { ...current, accounts: (current.accounts ?? []).filter((account) => account.id !== target.id) };
         });
-        if (!deletedId) throw new Error(`Account '${targetId}' not found.`);
+        if (!deletedId) throw new Error(`Account '${id}' not found.`);
         return { success: true, id: deletedId };
+      }
+
+      case "transactions_list": {
+        const doc = await this.adapter.getStore("lifeos-money");
+        let transactions = filterDates(doc?.state.transactions ?? [], args);
+        if (args.category) transactions = transactions.filter((transaction) => transaction.tag.toLocaleLowerCase() === String(args.category).toLocaleLowerCase());
+        if (args.accountId) transactions = transactions.filter((transaction) => transaction.accountId === args.accountId || transaction.transferAccountId === args.accountId);
+        transactions.sort((a, b) => b.date.localeCompare(a.date));
+        return page(transactions.map((transaction) => ({
+          id: transaction.id,
+          title: transaction.label,
+          amount: transaction.amount,
+          category: transaction.tag,
+          date: transaction.date,
+          accountId: transaction.accountId ?? null,
+          transferAccountId: transaction.transferAccountId ?? null,
+        })), args);
+      }
+
+      case "transactions_search": {
+        const doc = await this.adapter.getStore("lifeos-money");
+        let transactions = filterDates(doc?.state.transactions ?? [], args);
+        if (args.category) transactions = transactions.filter((transaction) => transaction.tag.toLocaleLowerCase() === String(args.category).toLocaleLowerCase());
+        if (args.accountId) transactions = transactions.filter((transaction) => transaction.accountId === args.accountId || transaction.transferAccountId === args.accountId);
+        return page(transactions.filter((transaction) => includesText(args.query, transaction.label, transaction.tag)).map((transaction) => ({
+          id: transaction.id,
+          title: transaction.label,
+          amount: transaction.amount,
+          category: transaction.tag,
+          date: transaction.date,
+          accountId: transaction.accountId ?? null,
+          transferAccountId: transaction.transferAccountId ?? null,
+        })), args);
+      }
+
+      case "transactions_get": {
+        const doc = await this.adapter.getStore("lifeos-money");
+        const transaction = exactById(doc?.state.transactions ?? [], args.id, "Transaction");
+        return { item: {
+          id: transaction.id,
+          title: transaction.label,
+          amount: transaction.amount,
+          category: transaction.tag,
+          date: transaction.date,
+          accountId: transaction.accountId ?? null,
+          transferAccountId: transaction.transferAccountId ?? null,
+        } };
       }
 
       case "add_money_transaction": {
         let amount = Number(args.amount ?? 0);
         if (args.type === "expense") amount = -Math.abs(amount);
-        else if (args.type === "income") amount = Math.abs(amount);
-
+        else if (args.type === "income" || args.type === "transfer") amount = Math.abs(amount);
         const newTx: Txn = {
           id: crypto.randomUUID(),
-          label: typeof args.description === "string" && args.description ? args.description : (args.type === "income" ? "Income" : "Expense"),
+          label: typeof args.title === "string" && args.title ? args.title : "Transaction",
           amount,
           tag: String(args.category ?? "Personal"),
           date: String(args.date ?? todayISO()),
@@ -746,22 +1028,20 @@ export class LocalMcpExecutor {
       }
 
       case "transfer_money": {
-        const transferTx: Txn = {
+        const transaction: Txn = {
           id: crypto.randomUUID(),
-          label: typeof args.description === "string" && args.description ? args.description : "Account Transfer",
-          amount: Math.abs(Number(args.amount ?? 0)),
+          label: typeof args.title === "string" ? args.title : "Account Transfer",
+          amount: Math.abs(Number(args.amount)),
           tag: "Transfer",
-          date: String(args.date ?? todayISO()),
+          date: typeof args.date === "string" ? args.date : todayISO(),
           accountId: String(args.fromAccountId),
           transferAccountId: String(args.toAccountId),
         };
-
         await this.adapter.mutateStore("lifeos-money", (current) => ({
           ...current,
-          transactions: [transferTx, ...(current.transactions ?? [])],
+          transactions: [transaction, ...(current.transactions ?? [])],
         }));
-
-        return { success: true, transaction: transferTx };
+        return { success: true, transaction };
       }
 
       // ---------------------------------------------------------------------
@@ -772,12 +1052,47 @@ export class LocalMcpExecutor {
         return { workouts: healthDoc?.state.workouts ?? [] };
       }
 
+      case "workouts_list": {
+        const doc = await this.adapter.getStore("lifeos-health");
+        let workouts = filterDates(doc?.state.workouts ?? [], args);
+        if (args.sport) workouts = workouts.filter((workout) => workout.sport.toLocaleLowerCase() === String(args.sport).toLocaleLowerCase());
+        workouts.sort((a, b) => b.date.localeCompare(a.date));
+        return page(workouts.map((workout) => ({
+          id: workout.id,
+          title: workout.sport,
+          date: workout.date,
+          durationMinutes: workout.minutes ?? null,
+          notes: workout.note ?? null,
+          exerciseCount: workout.exercises?.length ?? 0,
+        })), args);
+      }
+
+      case "workouts_search": {
+        const doc = await this.adapter.getStore("lifeos-health");
+        let workouts = filterDates(doc?.state.workouts ?? [], args);
+        if (args.sport) workouts = workouts.filter((workout) => workout.sport.toLocaleLowerCase() === String(args.sport).toLocaleLowerCase());
+        return page(workouts.filter((workout) => includesText(args.query, workout.sport, workout.note)).map((workout) => ({
+          id: workout.id,
+          title: workout.sport,
+          date: workout.date,
+          durationMinutes: workout.minutes ?? null,
+          notes: workout.note ?? null,
+          exerciseCount: workout.exercises?.length ?? 0,
+        })), args);
+      }
+
+      case "workouts_get": {
+        const doc = await this.adapter.getStore("lifeos-health");
+        const workout = exactById(doc?.state.workouts ?? [], args.id, "Workout");
+        return { item: { ...workout, title: workout.sport, durationMinutes: workout.minutes ?? null } };
+      }
+
       case "log_workout": {
         const newWorkout: Workout = {
           id: crypto.randomUUID(),
           date: String(args.date ?? todayISO()),
           sport: String(args.title ?? "Workout"),
-          minutes: typeof args.durationMin === "number" ? args.durationMin : 45,
+          minutes: typeof args.durationMinutes === "number" ? args.durationMinutes : 45,
           note: typeof args.notes === "string" ? args.notes : undefined,
           exercises: [],
         };
@@ -793,24 +1108,83 @@ export class LocalMcpExecutor {
       // ---------------------------------------------------------------------
       // Recurring Tasks & Topics
       // ---------------------------------------------------------------------
-      case "get_recurring_tasks": {
+      case "recurring_list": {
         const doc = await this.adapter.getStore("lifeos-recurring");
-        return { recurringTasks: doc?.state.recurring ?? [] };
+        let recurring = doc?.state.recurring ?? [];
+        if (args.frequency) recurring = recurring.filter((item) => item.rule.freq === args.frequency);
+        return page(recurring, args);
       }
 
-      case "get_topics": {
+      case "recurring_search": {
+        const doc = await this.adapter.getStore("lifeos-recurring");
+        let recurring = doc?.state.recurring ?? [];
+        if (args.frequency) recurring = recurring.filter((item) => item.rule.freq === args.frequency);
+        return page(recurring.filter((item) => includesText(args.query, item.title)), args);
+      }
+
+      case "recurring_get": {
+        const doc = await this.adapter.getStore("lifeos-recurring");
+        return { item: exactById(doc?.state.recurring ?? [], args.id, "Recurring task") };
+      }
+
+      case "topics_list": {
         const doc = await this.adapter.getStore("lifeos-topics");
-        return { topics: doc?.state.topics ?? [] };
+        const topics = (doc?.state.topics ?? []).map((topic) => ({
+          id: topic.id,
+          title: topic.name,
+          description: topic.description,
+          color: topic.color,
+          icon: topic.icon,
+          stepCount: topic.roadmap.length,
+          resourceCount: topic.resources.length,
+          noteCount: topic.notes.length,
+          updatedAt: new Date(topic.touchedAt).toISOString(),
+        }));
+        return page(topics, args);
+      }
+
+      case "topics_search": {
+        const doc = await this.adapter.getStore("lifeos-topics");
+        const topics = (doc?.state.topics ?? [])
+          .filter((topic) => includesText(args.query, topic.name, topic.description))
+          .map((topic) => ({
+            id: topic.id,
+            title: topic.name,
+            description: topic.description,
+            color: topic.color,
+            icon: topic.icon,
+            stepCount: topic.roadmap.length,
+            resourceCount: topic.resources.length,
+            noteCount: topic.notes.length,
+            updatedAt: new Date(topic.touchedAt).toISOString(),
+          }));
+        return page(topics, args);
+      }
+
+      case "topics_get": {
+        const doc = await this.adapter.getStore("lifeos-topics");
+        const topic = exactById(doc?.state.topics ?? [], args.id, "Topic");
+        return { item: { ...topic, title: topic.name } };
       }
 
       // ---------------------------------------------------------------------
       // Trash
       // ---------------------------------------------------------------------
-      case "get_trash_items": {
+      case "trash_list": {
         const doc = await this.adapter.getStore("lifeos-trash");
         const items = doc?.state.items ?? [];
-        const limit = Math.min(Number(args.limit ?? 20), 50);
-        return { items: items.slice(0, limit), total: items.length };
+        return page(items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          itemType: item.itemType,
+          deletedAt: item.deletedAt,
+          originalStoreKey: item.originalStoreKey,
+        })), args);
+      }
+
+      case "trash_get": {
+        const doc = await this.adapter.getStore("lifeos-trash");
+        return { item: exactById(doc?.state.items ?? [], args.id, "Trash item") };
       }
 
       case "restore_trash_item": {

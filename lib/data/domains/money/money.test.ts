@@ -143,10 +143,12 @@ describe("Money Domain — Pure Operations & Ledger Math", () => {
   });
 
   it("calculates monthly aggregate properly filtering transfers", () => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const txns: Txn[] = [
-      { id: "t1", label: "Income", amount: 1000, tag: "Salary", date: "2026-08-10", accountId: "a1" },
-      { id: "t2", label: "Groceries", amount: -200, tag: "Food", date: "2026-08-11", accountId: "a1" },
-      { id: "t3", label: "Transfer", amount: 300, tag: "Transfer", date: "2026-08-12", accountId: "a1", transferAccountId: "a2" },
+      { id: "t1", label: "Income", amount: 1000, tag: "Salary", date: `${currentMonth}-10`, accountId: "a1" },
+      { id: "t2", label: "Groceries", amount: -200, tag: "Food", date: `${currentMonth}-11`, accountId: "a1" },
+      { id: "t3", label: "Transfer", amount: 300, tag: "Transfer", date: `${currentMonth}-12`, accountId: "a1", transferAccountId: "a2" },
     ];
 
     // Global view excludes internal transfer from income/expense
