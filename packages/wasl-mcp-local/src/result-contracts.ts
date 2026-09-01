@@ -103,6 +103,9 @@ function classifyError(error: unknown): {
   if (lower.includes("ambiguous")) {
     return { code: "AMBIGUOUS_MATCH", message: "The reference matches multiple items.", retryable: false };
   }
+  if (lower.includes("validation_error") || lower.includes("immutable id") || lower.includes("confirmation")) {
+    return { code: "VALIDATION_ERROR", message: raw.replace(/^VALIDATION_ERROR:\s*/i, ""), retryable: false };
+  }
   if (lower.includes("not found") || lower.includes("no active") || lower.includes("not in trash")) {
     return { code: "NOT_FOUND", message: "The requested item was not found.", retryable: false };
   }

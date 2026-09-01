@@ -128,7 +128,7 @@ export interface StoreStateMap {
 
 /**
  * Canonical document format for persisting a single domain store snapshot.
- * Used across Local (IndexedDB/Dexie) and Portable Backups.
+ * Used identically across Local (IndexedDB/Dexie), Cloud (Supabase), and Portable Backups.
  */
 export interface StoreDocument<K extends StoreKey = StoreKey> {
   store: K;
@@ -139,8 +139,8 @@ export interface StoreDocument<K extends StoreKey = StoreKey> {
 }
 
 /**
- * Standard DataAdapter contract implemented by persistence adapter.
- * Components interact strictly through this interface or hooks, never querying Dexie directly.
+ * Standard DataAdapter contract implemented by both Local and Cloud persistence adapters.
+ * Components interact strictly through this interface or hooks, never querying Dexie or Supabase directly.
  */
 export interface DataAdapter {
   readonly edition: WaslEdition;
@@ -158,6 +158,7 @@ export interface DataAdapter {
   mutateStore<K extends StoreKey>(
     store: K,
     mutation: (state: StoreStateMap[K]) => StoreStateMap[K],
+    options?: { expectedVersion?: string },
   ): Promise<StoreDocument<K>>;
 
   /** Retrieve all active domain store documents. */

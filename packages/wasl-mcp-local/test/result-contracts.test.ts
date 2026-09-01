@@ -6,6 +6,7 @@ import {
 } from "../src/result-contracts";
 import { z } from "zod";
 import { WASL_TOOLS } from "../src/tool-definitions";
+import { MCP_DEPRECATED_TOOLS } from "../src/tool-catalog";
 
 describe("WASL Local MCP structured result contracts", () => {
   it("exposes the V2 retrieval families without legacy bulk note/topic retrieval", () => {
@@ -22,6 +23,23 @@ describe("WASL Local MCP structured result contracts", () => {
     expect(names).toContain("trash_get");
     expect(names).not.toContain("get_notes_topics");
     expect(names).not.toContain("get_notes");
+    expect(names).not.toContain("search_all");
+    expect(names).not.toContain("add_task");
+    expect(names).not.toContain("update_note");
+    expect(names).toContain("tasks_create");
+    expect(names).toContain("notes_update");
+    expect(MCP_DEPRECATED_TOOLS).toMatchObject({
+      add_task: "tasks_create",
+      update_note: "notes_update",
+      search_all: expect.stringContaining("notes_search"),
+    });
+  });
+
+  it("documents safety and mutation intent on every public tool", () => {
+    for (const tool of WASL_TOOLS) {
+      expect(tool.description, tool.name).toMatch(/READ-ONLY|MUTATES DATA/);
+      expect(tool.schema, tool.name).toBeDefined();
+    }
   });
 
   it.each([
@@ -41,8 +59,8 @@ describe("WASL Local MCP structured result contracts", () => {
   });
 
   it.each([
-    ["add_task", { success: true, task: { id: "task-new", title: "New" } }, "task-new"],
-    ["update_task", { success: true, task: { id: "task-1", title: "Updated" } }, "task-1"],
+    ["tasks_create", { success: true, task: { id: "task-new", title: "New" } }, "task-new"],
+    ["tasks_update", { success: true, task: { id: "task-1", title: "Updated" } }, "task-1"],
   ])("returns a mutation receipt for %s", (action, data, id) => {
     const result = successResult(action, data, 42);
 
@@ -61,7 +79,7 @@ describe("WASL Local MCP structured result contracts", () => {
     expect(transported).toEqual({ success: true, data: {} });
     expect(strictSchema.safeParse(transported.data).success).toBe(false);
 
-    const result = validationErrorResult("add_task", {
+    const result = validationErrorResult("tasks_create", {
       __waslInvalidArguments: true,
       issues: [{ code: "invalid_type", message: "Expected string", path: ["title"] }],
     });

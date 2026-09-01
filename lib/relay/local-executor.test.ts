@@ -75,7 +75,7 @@ describe("LocalMcpExecutor", () => {
     // 1. Add task
     const addOutcome = await executor.execute(
       {
-        toolName: "add_task",
+        toolName: "tasks_create",
         args: { title: "Complete Local MCP", priority: "high", due: "2026-08-24" },
       },
       readWriteProfile,
@@ -98,7 +98,7 @@ describe("LocalMcpExecutor", () => {
     // 3. Update task
     const updateOutcome = await executor.execute(
       {
-        toolName: "update_task",
+        toolName: "tasks_update",
         args: { id: task.id, done: true },
       },
       readWriteProfile,
@@ -111,7 +111,7 @@ describe("LocalMcpExecutor", () => {
 
     // 4. Delete task (moves to trash)
     const deleteOutcome = await executor.execute(
-      { toolName: "delete_task", args: { id: task.id } },
+      { toolName: "tasks_delete", args: { id: task.id } },
       readWriteProfile,
     );
     expect(deleteOutcome.ok).toBe(true);
@@ -136,7 +136,7 @@ describe("LocalMcpExecutor", () => {
 
   it("supports paginated note list, search, get, and atomic append", async () => {
     const created = await executor.execute(
-      { toolName: "add_note", args: { title: "Retrieval architecture", body: "Alpha" } },
+      { toolName: "notes_create", args: { title: "Retrieval architecture", body: "Alpha" } },
       readWriteProfile,
     );
     expect(created.ok).toBe(true);
@@ -173,14 +173,14 @@ describe("LocalMcpExecutor", () => {
     const key = "unique_write_op_123";
     const res1 = await executor.execute(
       {
-        toolName: "add_task",
+        toolName: "tasks_create",
         args: { title: "Idempotent Task", idempotencyKey: key },
       },
       readWriteProfile,
     );
     const res2 = await executor.execute(
       {
-        toolName: "add_task",
+        toolName: "tasks_create",
         args: { title: "Idempotent Task", idempotencyKey: key },
       },
       readWriteProfile,
@@ -197,13 +197,47 @@ describe("LocalMcpExecutor", () => {
     }
   });
 
+  it("rejects idempotency-key reuse with different arguments", async () => {
+    const idempotencyKey = "same-key-different-request";
+    await executor.execute({ toolName: "tasks_create", args: { title: "First", idempotencyKey } }, readWriteProfile);
+    const replay = await executor.execute({ toolName: "tasks_create", args: { title: "Second", idempotencyKey } }, readWriteProfile);
+    expect(replay).toMatchObject({ ok: false });
+    if (!replay.ok) expect(replay.error).toContain("VALIDATION_ERROR");
+  });
+
+  it("returns mutation receipts and rejects stale expectedVersion tokens", async () => {
+    const created = await executor.execute({ toolName: "tasks_create", args: { title: "Versioned" } }, readWriteProfile);
+    expect(created).toMatchObject({ ok: true, result: { id: expect.any(String), version: expect.any(String), updatedAt: expect.any(String), entity: { title: "Versioned" } } });
+    if (!created.ok) return;
+    const task = (created.result as { task: { id: string }; version: string }).task;
+    const staleVersion = (created.result as { version: string }).version;
+
+    await executor.execute({ toolName: "tasks_create", args: { title: "Concurrent write" } }, readWriteProfile);
+    const stale = await executor.execute(
+      { toolName: "tasks_update", args: { id: task.id, title: "Stale overwrite", expectedVersion: staleVersion } },
+      readWriteProfile,
+    );
+    expect(stale).toMatchObject({ ok: false });
+    if (!stale.ok) expect(stale.error).toContain("VERSION_CONFLICT");
+  });
+
+  it("rejects duplicate-title mutation references as ambiguous instead of mutating siblings", async () => {
+    await executor.execute({ toolName: "tasks_create", args: { title: "Duplicate" } }, readWriteProfile);
+    await executor.execute({ toolName: "tasks_create", args: { title: "Duplicate" } }, readWriteProfile);
+    const outcome = await executor.execute({ toolName: "tasks_delete", args: { id: "Duplicate" } }, readWriteProfile);
+    expect(outcome).toMatchObject({ ok: false });
+    if (!outcome.ok) expect(outcome.error).toContain("AMBIGUOUS_MATCH");
+    const tasks = await executor.execute({ toolName: "tasks_list", args: {} }, readWriteProfile);
+    expect(tasks).toMatchObject({ ok: true, result: { pagination: { total: 2 } } });
+  });
+
   // -------------------------------------------------------------------------
   // Permissions: Read-only rejection of writes
   // -------------------------------------------------------------------------
   it("rejects write tools when client is read-only", async () => {
     const outcome = await executor.execute(
       {
-        toolName: "add_task",
+        toolName: "tasks_create",
         args: { title: "Should Fail" },
       },
       readOnlyProfile,
@@ -213,6 +247,44 @@ describe("LocalMcpExecutor", () => {
     if (!outcome.ok) {
       expect(outcome.error).toContain("PERMISSION_DENIED");
     }
+  });
+
+  it("exposes safe capabilities and rejects disabled clients", async () => {
+    const capabilities = await executor.execute({ toolName: "system_capabilities_get", args: {} }, readOnlyProfile);
+    expect(capabilities).toMatchObject({
+      ok: true,
+      result: {
+        permission: "read",
+        canWrite: false,
+        deprecatedTools: { add_task: "tasks_create", add_note: "notes_create" },
+        mutationSafety: { immutableIdsRequired: true },
+      },
+    });
+
+    const disabled = await executor.execute(
+      { toolName: "tasks_list", args: {} },
+      { ...readWriteProfile, enabled: false },
+    );
+    expect(disabled).toMatchObject({ ok: false });
+    if (!disabled.ok) expect(disabled.error).toContain("PERMISSION_DENIED");
+  });
+
+  it("requires target-bound confirmation for permanent Local deletes", async () => {
+    const account = await executor.execute(
+      { toolName: "money_accounts_create", args: { name: "Cash", type: "cash" } },
+      readWriteProfile,
+    );
+    expect(account.ok).toBe(true);
+    if (!account.ok) return;
+    const id = (account.result as { account: { id: string } }).account.id;
+
+    const denied = await executor.execute({ toolName: "money_accounts_delete", args: { id } }, readWriteProfile);
+    expect(denied).toMatchObject({ ok: false });
+    const confirmed = await executor.execute(
+      { toolName: "money_accounts_delete", args: { id, confirmation: `DELETE:${id}` } },
+      readWriteProfile,
+    );
+    expect(confirmed).toMatchObject({ ok: true, result: { id } });
   });
 
   // -------------------------------------------------------------------------
@@ -234,7 +306,7 @@ describe("LocalMcpExecutor", () => {
 
     const moneyRes = await executor.execute(
       {
-        toolName: "get_money",
+        toolName: "money_overview_get",
         args: {},
       },
       restrictedProfile,
@@ -245,30 +317,30 @@ describe("LocalMcpExecutor", () => {
   // -------------------------------------------------------------------------
   // Notes, Goals, Habits, Blocks, Search
   // -------------------------------------------------------------------------
-  it("adds notes, goals, habits, blocks, and performs unified search", async () => {
+  it("adds notes, goals, and tasks and searches each domain explicitly", async () => {
     await executor.execute(
-      { toolName: "add_note", args: { title: "Project Alpha Plan", body: "Focus on AI" } },
+      { toolName: "notes_create", args: { title: "Project Alpha Plan", body: "Focus on AI" } },
       readWriteProfile,
     );
     await executor.execute(
-      { toolName: "add_goal", args: { title: "Launch Alpha App" } },
+      { toolName: "goals_create", args: { title: "Launch Alpha App" } },
       readWriteProfile,
     );
     await executor.execute(
-      { toolName: "add_task", args: { title: "Review Alpha Code" } },
+      { toolName: "tasks_create", args: { title: "Review Alpha Code" } },
       readWriteProfile,
     );
 
-    const searchOutcome = await executor.execute(
-      { toolName: "search_all", args: { query: "Alpha" } },
-      readWriteProfile,
-    );
-
-    expect(searchOutcome.ok).toBe(true);
-    if (searchOutcome.ok) {
-      const res = searchOutcome.result as { results: Array<{ title: string; type: string }> };
-      expect(res.results.length).toBe(3);
-    }
+    const results = await Promise.all([
+      executor.execute({ toolName: "notes_search", args: { query: "Alpha" } }, readWriteProfile),
+      executor.execute({ toolName: "goals_search", args: { query: "Alpha" } }, readWriteProfile),
+      executor.execute({ toolName: "tasks_search", args: { query: "Alpha" } }, readWriteProfile),
+    ]);
+    expect(results).toEqual([
+      expect.objectContaining({ ok: true, result: expect.objectContaining({ items: [expect.objectContaining({ title: "Project Alpha Plan" })] }) }),
+      expect.objectContaining({ ok: true, result: expect.objectContaining({ items: [expect.objectContaining({ title: "Launch Alpha App" })] }) }),
+      expect.objectContaining({ ok: true, result: expect.objectContaining({ items: [expect.objectContaining({ title: "Review Alpha Code" })] }) }),
+    ]);
   });
 
   // -------------------------------------------------------------------------
@@ -276,7 +348,7 @@ describe("LocalMcpExecutor", () => {
   // -------------------------------------------------------------------------
   it("records all invocations in the audit log", async () => {
     await executor.execute({ toolName: "tasks_list", args: {} }, readWriteProfile);
-    await executor.execute({ toolName: "add_task", args: { title: "Audit test" } }, readOnlyProfile);
+    await executor.execute({ toolName: "tasks_create", args: { title: "Audit test" } }, readOnlyProfile);
 
     const logs = loadAuditLog();
     expect(logs.length).toBe(2);

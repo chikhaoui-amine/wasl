@@ -40,7 +40,7 @@ function assertActiveStoreKey(key: string): asserts key is StoreKey {
  * DataAdapter implementation for WASL Local Edition using Dexie and IndexedDB.
  *
  * Constraints & Guarantees:
- * - Operates entirely locally with zero remote network dependencies.
+ * - Operates entirely locally with zero Supabase or remote network dependencies.
  * - All writes execute within atomic Dexie transactions.
  * - Maintains a monotonic global revision record in the metadata table.
  * - Cross-tab and local invalidation via Dexie liveQuery.
@@ -206,18 +206,23 @@ export class LocalAdapter implements DataAdapter {
   async mutateStore<K extends StoreKey>(
     store: K,
     mutation: (state: StoreStateMap[K]) => StoreStateMap[K],
+    options?: { expectedVersion?: string },
   ): Promise<StoreDocument<K>> {
     assertActiveStoreKey(store);
     await this.ensureInitialized();
 
     const expectedVersion = getStoreVersion(store);
-    const now = new Date().toISOString();
-
     const updatedDoc = await this.db.transaction(
       "rw",
       [this.db.documents, this.db.metadata],
       async () => {
         const existing = await this.db.documents.get(store);
+        const previousTime = existing ? Date.parse(existing.updatedAt) : Number.NaN;
+        const now = new Date(Math.max(Date.now(), Number.isFinite(previousTime) ? previousTime + 1 : 0)).toISOString();
+
+        if (options?.expectedVersion !== undefined && existing?.updatedAt !== options.expectedVersion) {
+          throw new Error(`VERSION_CONFLICT: Store "${store}" changed after it was read.`);
+        }
 
         if (existing && existing.version > expectedVersion) {
           throw new Error(

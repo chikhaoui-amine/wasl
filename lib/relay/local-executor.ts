@@ -15,7 +15,8 @@
  * - Logs all tool execution metadata to the local audit store.
  */
 
-import type { DataAdapter } from "@/lib/data/types";
+import type { DataAdapter, StoreDocument, StoreStateMap } from "@/lib/data/types";
+import type { StoreKey } from "@/lib/data/store-registry";
 import { todayISO } from "@/lib/date";
 import { normalizeTask, type Task } from "@/lib/data/domains/tasks/operations";
 import { normalizeGoal, type Goal } from "@/lib/data/domains/goals/operations";
@@ -28,8 +29,17 @@ import type { Workout } from "@/lib/data/domains/health/types";
 import {
   type McpClientProfile,
   type DomainName,
+  sha256Hex,
 } from "./permissions";
-import { recordAuditEntry } from "./audit";
+import {
+  completeLocalIdempotency,
+  getLocalIdempotency,
+  recordAuditEntry,
+  releaseLocalIdempotency,
+  reserveLocalIdempotency,
+} from "./audit";
+import { destructiveConfirmation, isMcpWriteTool, mcpToolDomain, mcpToolStore, safeCapabilityMetadata } from "@/lib/ai/mcp-write-policy";
+import { implementationToolName } from "@/packages/wasl-mcp-local/src/tool-catalog";
 
 export interface McpCallPayload {
   requestId?: string;
@@ -40,9 +50,6 @@ export interface McpCallPayload {
 export type McpExecutorOutcome =
   | { ok: true; result: unknown }
   | { ok: false; error: string };
-
-// Idempotency cache (in-memory, sliding window 100 entries)
-const idempotencyCache = new Map<string, unknown>();
 
 interface PageInput {
   limit?: unknown;
@@ -82,6 +89,21 @@ function exactById<T extends { id: string }>(items: T[], id: unknown, label: str
   return item;
 }
 
+function mutationTargetById<T extends { id: string }>(
+  items: T[],
+  id: unknown,
+  label: string,
+  titleOf: (item: T) => string,
+): T {
+  const value = String(id ?? "");
+  const exact = items.find((item) => item.id === value);
+  if (exact) return exact;
+  const titleMatches = items.filter((item) => titleOf(item).trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase());
+  if (titleMatches.length > 1) throw new Error(`AMBIGUOUS_MATCH: Multiple ${label} records match that title. Use an immutable ID.`);
+  if (titleMatches.length === 1) throw new Error(`VALIDATION_ERROR: ${label} mutations require an immutable ID.`);
+  throw new Error(`${label} '${value}' not found.`);
+}
+
 function decimalHourToTime(value: unknown): string | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   const hours = Math.floor(value);
@@ -90,35 +112,31 @@ function decimalHourToTime(value: unknown): string | null {
 }
 
 function getToolDomain(toolName: string): DomainName {
-  if (toolName.includes("task") || toolName === "set_daily_focus") return "tasks";
-  if (toolName.includes("note")) return "notes";
-  if (toolName.includes("goal")) return "goals";
-  if (toolName.includes("habit")) return "habits";
-  if (toolName.includes("block") || toolName.includes("calendar")) return "blocks";
-  if (toolName.includes("journal")) return "journal";
-  if (toolName.includes("money") || toolName.includes("transaction")) return "money";
-  if (toolName.includes("health") || toolName.includes("workout")) return "health";
-  if (toolName.includes("recurring")) return "recurring";
-  if (toolName.includes("topic")) return "topics";
-  if (toolName.includes("trash")) return "trash";
-  return "tasks";
-}
-
-function isWriteTool(toolName: string): boolean {
-  return (
-    toolName.startsWith("add_") ||
-    toolName.startsWith("update_") ||
-    toolName.startsWith("delete_") ||
-    toolName.startsWith("set_") ||
-    toolName.startsWith("toggle_") ||
-    toolName.startsWith("log_") ||
-    toolName.startsWith("restore_") ||
-    toolName.endsWith("_append")
-  );
+  return mcpToolDomain(toolName);
 }
 
 export class LocalMcpExecutor {
+  private mutationContext?: {
+    targetStore: StoreKey;
+    expectedVersion?: string;
+    committed?: StoreDocument<StoreKey>;
+  };
+
   constructor(private adapter: DataAdapter) {}
+
+  private async mutateStore<K extends StoreKey>(
+    store: K,
+    mutation: (state: StoreStateMap[K]) => StoreStateMap[K],
+  ): Promise<StoreDocument<K>> {
+    const context = this.mutationContext;
+    const document = await this.adapter.mutateStore(
+      store,
+      mutation,
+      context?.targetStore === store ? { expectedVersion: context.expectedVersion } : undefined,
+    );
+    if (context?.targetStore === store) context.committed = document as StoreDocument<StoreKey>;
+    return document;
+  }
 
   async execute(
     call: McpCallPayload,
@@ -126,11 +144,11 @@ export class LocalMcpExecutor {
   ): Promise<McpExecutorOutcome> {
     const startTime = Date.now();
     const domain = getToolDomain(call.toolName);
-    const isWrite = isWriteTool(call.toolName);
+    const isWrite = isMcpWriteTool(call.toolName);
     const args = call.args ?? {};
 
     // 1. Permission checks
-    if (client.revoked) {
+    if (client.revoked || !client.enabled) {
       const outcome = { ok: false as const, error: "PERMISSION_DENIED: Client access has been revoked." };
       recordAuditEntry({
         id: crypto.randomUUID(),
@@ -144,6 +162,10 @@ export class LocalMcpExecutor {
         errorMessage: outcome.error,
       });
       return outcome;
+    }
+
+    if (call.toolName === "system_capabilities_get") {
+      return { ok: true, result: safeCapabilityMetadata(client) };
     }
 
     if (isWrite && client.permission === "read") {
@@ -187,25 +209,70 @@ export class LocalMcpExecutor {
       return outcome;
     }
 
+    const localPermanentDelete = call.toolName === "calendar_delete" || call.toolName === "money_accounts_delete";
+    const requiredConfirmation = localPermanentDelete ? destructiveConfirmation(call.toolName, args) : undefined;
+    if (requiredConfirmation && args.confirmation !== requiredConfirmation) {
+      const outcome = {
+        ok: false as const,
+        error: `VALIDATION_ERROR: Explicit confirmation '${requiredConfirmation}' is required for ${call.toolName}.`,
+      };
+      recordAuditEntry({
+        id: crypto.randomUUID(), clientId: client.id, clientName: client.name,
+        toolName: call.toolName, domain, timestamp: new Date().toISOString(),
+        outcome: "denied", durationMs: Date.now() - startTime, errorMessage: outcome.error,
+        requestId: call.requestId,
+      });
+      return outcome;
+    }
+
     // 2. Idempotency check for writes — cache is scoped by client + tool so two
     // connectors using the same key can never receive each other's results.
     const idempotencyKey = typeof args.idempotencyKey === "string" ? args.idempotencyKey : null;
-    const scopedCacheKey = idempotencyKey ? `${client.id}:${call.toolName}:${idempotencyKey}` : null;
-    if (scopedCacheKey && idempotencyCache.has(scopedCacheKey)) {
-      const cached = idempotencyCache.get(scopedCacheKey);
-      return { ok: true, result: cached };
+    const scopedCacheKey = idempotencyKey ? await sha256Hex(`${client.id}:${call.toolName}:${idempotencyKey}`) : null;
+    const requestHash = scopedCacheKey ? await sha256Hex(JSON.stringify({ toolName: call.toolName, args: { ...args, idempotencyKey: undefined } })) : null;
+    if (scopedCacheKey && requestHash) {
+      const existing = getLocalIdempotency(scopedCacheKey);
+      if (existing) {
+        if (existing.requestHash !== requestHash) {
+          return { ok: false, error: "VALIDATION_ERROR: The idempotency key was already used with different arguments." };
+        }
+        if (existing.status === "completed") return { ok: true, result: existing.result };
+        return { ok: false, error: "RATE_LIMITED: An identical mutation is already in progress. Retry shortly." };
+      }
+      reserveLocalIdempotency(scopedCacheKey, requestHash);
     }
 
     // 3. Tool execution
     try {
-      const result = await this.dispatchTool(call.toolName, args);
+      const { expectedVersion, idempotencyKey: _idempotencyKey, confirmation: _confirmation, ...domainArgs } = args;
+      void _idempotencyKey;
+      void _confirmation;
+      this.mutationContext = isWrite
+        ? { targetStore: mcpToolStore(call.toolName), expectedVersion: typeof expectedVersion === "string" ? expectedVersion : undefined }
+        : undefined;
+      const rawResult = await this.dispatchTool(implementationToolName(call.toolName), domainArgs);
+      const committed = this.mutationContext?.committed;
+      const raw: Record<string, unknown> = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
+        ? { ...(rawResult as Record<string, unknown>) }
+        : { value: rawResult };
+      const entity = ["task", "note", "goal", "habit", "block", "entry", "workout", "account", "transaction"]
+        .map((key) => raw[key])
+        .find((value) => value && typeof value === "object" && !Array.isArray(value)) as Record<string, unknown> | undefined;
+      const id = typeof raw.id === "string" ? raw.id : typeof entity?.id === "string" ? entity.id : null;
+      const readDocument = !isWrite ? await this.adapter.getStore(mcpToolStore(call.toolName)) : null;
+      const result = isWrite ? {
+          ...raw,
+          id,
+          version: committed?.updatedAt ?? null,
+          updatedAt: committed?.updatedAt ?? null,
+          ...(entity ? { entity } : {}),
+        } : {
+          ...raw,
+          version: readDocument?.updatedAt ?? null,
+        };
 
       if (scopedCacheKey) {
-        idempotencyCache.set(scopedCacheKey, result);
-        if (idempotencyCache.size > 100) {
-          const firstKey = idempotencyCache.keys().next().value;
-          if (firstKey) idempotencyCache.delete(firstKey);
-        }
+        completeLocalIdempotency(scopedCacheKey, result);
       }
 
       recordAuditEntry({
@@ -217,10 +284,15 @@ export class LocalMcpExecutor {
         timestamp: new Date().toISOString(),
         outcome: "success",
         durationMs: Date.now() - startTime,
+        requestId: call.requestId,
+        entityId: id ?? undefined,
+        version: committed?.updatedAt,
+        idempotencyHash: scopedCacheKey ?? undefined,
       });
 
       return { ok: true, result };
     } catch (err: unknown) {
+      if (scopedCacheKey) releaseLocalIdempotency(scopedCacheKey);
       const errorMsg = (err as Error)?.message ?? "Tool execution failed";
       recordAuditEntry({
         id: crypto.randomUUID(),
@@ -234,6 +306,8 @@ export class LocalMcpExecutor {
         errorMessage: errorMsg,
       });
       return { ok: false, error: errorMsg };
+    } finally {
+      this.mutationContext = undefined;
     }
   }
 
@@ -291,7 +365,7 @@ export class LocalMcpExecutor {
           createdAt: todayISO(),
         };
 
-        const updatedDoc = await this.adapter.mutateStore("lifeos-tasks", (current) => ({
+        const updatedDoc = await this.mutateStore("lifeos-tasks", (current) => ({
           ...current,
           tasks: [newTask, ...(current.tasks ?? [])],
         }));
@@ -303,7 +377,7 @@ export class LocalMcpExecutor {
         const id = String(args.id);
         let updatedTask: Task | null = null;
 
-        await this.adapter.mutateStore("lifeos-tasks", (current) => {
+        await this.mutateStore("lifeos-tasks", (current) => {
           const tasks = (current.tasks ?? []).map((t) => {
             if (t.id !== id) return t;
             const status =
@@ -335,8 +409,7 @@ export class LocalMcpExecutor {
       case "delete_task": {
         const id = String(args.id);
         const tasksDoc = await this.adapter.getStore("lifeos-tasks");
-        const taskToDelete = (tasksDoc?.state.tasks ?? []).find((t) => t.id === id);
-        if (!taskToDelete) throw new Error(`Task '${id}' not found.`);
+        const taskToDelete = mutationTargetById(tasksDoc?.state.tasks ?? [], id, "Task", (task) => task.title);
 
         // Move to Trash
         const trashItem: TrashItem = {
@@ -348,12 +421,12 @@ export class LocalMcpExecutor {
           originalStoreKey: "lifeos-tasks",
         };
 
-        await this.adapter.mutateStore("lifeos-trash", (current) =>
+        await this.mutateStore("lifeos-trash", (current) =>
           moveToTrashOperation(current, trashItem),
         );
 
         // Remove from active tasks
-        await this.adapter.mutateStore("lifeos-tasks", (current) => ({
+        await this.mutateStore("lifeos-tasks", (current) => ({
           ...current,
           tasks: (current.tasks ?? []).filter((t) => t.id !== id),
         }));
@@ -365,7 +438,7 @@ export class LocalMcpExecutor {
         const date = typeof args.date === "string" ? args.date : todayISO();
         const taskIds = Array.isArray(args.taskIds) ? (args.taskIds as string[]).slice(0, 3) : [];
 
-        await this.adapter.mutateStore("lifeos-tasks", (current) => ({
+        await this.mutateStore("lifeos-tasks", (current) => ({
           ...current,
           dailyFocus: {
             ...(current.dailyFocus ?? {}),
@@ -439,7 +512,7 @@ export class LocalMcpExecutor {
           author: typeof args.author === "string" ? args.author : undefined,
         };
 
-        await this.adapter.mutateStore("lifeos-notes", (current) => ({
+        await this.mutateStore("lifeos-notes", (current) => ({
           ...current,
           notes: [newNote, ...(current.notes ?? [])],
         }));
@@ -451,7 +524,7 @@ export class LocalMcpExecutor {
         const id = String(args.id);
         let updatedNote: unknown = null;
 
-        await this.adapter.mutateStore("lifeos-notes", (current) => {
+        await this.mutateStore("lifeos-notes", (current) => {
           const notes = (current.notes ?? []).map((n) => {
             if (n.id !== id) return n;
             const mod = {
@@ -475,7 +548,7 @@ export class LocalMcpExecutor {
       case "notes_append": {
         const id = String(args.id);
         let updatedNote: unknown = null;
-        await this.adapter.mutateStore("lifeos-notes", (current) => ({
+        await this.mutateStore("lifeos-notes", (current) => ({
           ...current,
           notes: (current.notes ?? []).map((note) => {
             if (note.id !== id) return note;
@@ -509,11 +582,11 @@ export class LocalMcpExecutor {
           originalStoreKey: "lifeos-notes",
         };
 
-        await this.adapter.mutateStore("lifeos-trash", (current) =>
+        await this.mutateStore("lifeos-trash", (current) =>
           moveToTrashOperation(current, trashItem),
         );
 
-        await this.adapter.mutateStore("lifeos-notes", (current) => ({
+        await this.mutateStore("lifeos-notes", (current) => ({
           ...current,
           notes: (current.notes ?? []).filter((n) => n.id !== id),
         }));
@@ -586,7 +659,7 @@ export class LocalMcpExecutor {
           plan: "",
         });
 
-        await this.adapter.mutateStore("lifeos-goals", (current) => ({
+        await this.mutateStore("lifeos-goals", (current) => ({
           ...current,
           goals: [newGoal, ...(current.goals ?? [])],
         }));
@@ -598,7 +671,7 @@ export class LocalMcpExecutor {
         const id = String(args.id);
         let updatedGoal: Goal | null = null;
 
-        await this.adapter.mutateStore("lifeos-goals", (current) => {
+        await this.mutateStore("lifeos-goals", (current) => {
           const goals = (current.goals ?? []).map((g) => {
             if (g.id !== id) return g;
             const mod: Goal = {
@@ -633,11 +706,11 @@ export class LocalMcpExecutor {
           originalStoreKey: "lifeos-goals",
         };
 
-        await this.adapter.mutateStore("lifeos-trash", (current) =>
+        await this.mutateStore("lifeos-trash", (current) =>
           moveToTrashOperation(current, trashItem),
         );
 
-        await this.adapter.mutateStore("lifeos-goals", (current) => ({
+        await this.mutateStore("lifeos-goals", (current) => ({
           ...current,
           goals: (current.goals ?? []).filter((g) => g.id !== id),
         }));
@@ -697,7 +770,7 @@ export class LocalMcpExecutor {
           createdAt: todayISO(),
         });
 
-        await this.adapter.mutateStore("lifeos-habits", (current) => ({
+        await this.mutateStore("lifeos-habits", (current) => ({
           ...current,
           habits: [...(current.habits ?? []), newHabit],
         }));
@@ -705,16 +778,16 @@ export class LocalMcpExecutor {
         return { success: true, habit: newHabit };
       }
 
-      case "toggle_habit_day": {
+      case "set_habit_day_completed": {
         const id = String(args.id);
         const date = String(args.date ?? todayISO());
         let updatedHabit: Habit | null = null;
 
-        await this.adapter.mutateStore("lifeos-habits", (current) => {
+        await this.mutateStore("lifeos-habits", (current) => {
           const habits = (current.habits ?? []).map((h) => {
             if (h.id !== id) return h;
             const log = { ...(h.log ?? {}) };
-            const nextVal = typeof args.completed === "boolean" ? args.completed : !log[date];
+            const nextVal = args.completed === true;
             if (nextVal) log[date] = true;
             else delete log[date];
 
@@ -744,11 +817,11 @@ export class LocalMcpExecutor {
           originalStoreKey: "lifeos-habits",
         };
 
-        await this.adapter.mutateStore("lifeos-trash", (current) =>
+        await this.mutateStore("lifeos-trash", (current) =>
           moveToTrashOperation(current, trashItem),
         );
 
-        await this.adapter.mutateStore("lifeos-habits", (current) => ({
+        await this.mutateStore("lifeos-habits", (current) => ({
           ...current,
           habits: (current.habits ?? []).filter((h) => h.id !== id),
         }));
@@ -815,7 +888,7 @@ export class LocalMcpExecutor {
           color: String(args.color ?? "var(--accent)"),
         };
 
-        await this.adapter.mutateStore("lifeos-blocks", (current) => ({
+        await this.mutateStore("lifeos-blocks", (current) => ({
           ...current,
           blocks: [...(current.blocks ?? []), newBlock],
         }));
@@ -825,7 +898,7 @@ export class LocalMcpExecutor {
 
       case "delete_calendar_block": {
         const id = String(args.id);
-        await this.adapter.mutateStore("lifeos-blocks", (current) => ({
+        await this.mutateStore("lifeos-blocks", (current) => ({
           ...current,
           blocks: (current.blocks ?? []).filter((b) => b.id !== id),
         }));
@@ -881,7 +954,7 @@ export class LocalMcpExecutor {
           createdAt: Date.now(),
         };
 
-        await this.adapter.mutateStore("lifeos-journal", (current) => ({
+        await this.mutateStore("lifeos-journal", (current) => ({
           ...current,
           entries: [newEntry, ...(current.entries ?? [])],
         }));
@@ -913,7 +986,7 @@ export class LocalMcpExecutor {
           icon: typeof args.icon === "string" ? args.icon : "landmark",
           createdAt: todayISO(),
         };
-        await this.adapter.mutateStore("lifeos-money", (current) => ({
+        await this.mutateStore("lifeos-money", (current) => ({
           ...current,
           accounts: [...(current.accounts ?? []), account],
         }));
@@ -923,10 +996,10 @@ export class LocalMcpExecutor {
       case "update_money_account": {
         const id = String(args.id);
         let updatedAccount: Account | null = null;
-        await this.adapter.mutateStore("lifeos-money", (current) => ({
+        await this.mutateStore("lifeos-money", (current) => ({
           ...current,
           accounts: (current.accounts ?? []).map((account) => {
-            if (account.id !== id && account.name.toLocaleLowerCase() !== id.toLocaleLowerCase()) return account;
+            if (account.id !== id) return account;
             updatedAccount = {
               ...account,
               ...(args.name !== undefined ? { name: String(args.name) } : {}),
@@ -946,10 +1019,8 @@ export class LocalMcpExecutor {
       case "delete_money_account": {
         const id = String(args.id);
         let deletedId: string | null = null;
-        await this.adapter.mutateStore("lifeos-money", (current) => {
-          const target = (current.accounts ?? []).find((account) =>
-            account.id === id || account.name.toLocaleLowerCase() === id.toLocaleLowerCase(),
-          );
+        await this.mutateStore("lifeos-money", (current) => {
+          const target = (current.accounts ?? []).find((account) => account.id === id);
           if (!target) return current;
           deletedId = target.id;
           return { ...current, accounts: (current.accounts ?? []).filter((account) => account.id !== target.id) };
@@ -1019,7 +1090,7 @@ export class LocalMcpExecutor {
           transferAccountId: typeof args.transferAccountId === "string" ? args.transferAccountId : undefined,
         };
 
-        await this.adapter.mutateStore("lifeos-money", (current) => ({
+        await this.mutateStore("lifeos-money", (current) => ({
           ...current,
           transactions: [newTx, ...(current.transactions ?? [])],
         }));
@@ -1037,7 +1108,7 @@ export class LocalMcpExecutor {
           accountId: String(args.fromAccountId),
           transferAccountId: String(args.toAccountId),
         };
-        await this.adapter.mutateStore("lifeos-money", (current) => ({
+        await this.mutateStore("lifeos-money", (current) => ({
           ...current,
           transactions: [transaction, ...(current.transactions ?? [])],
         }));
@@ -1097,7 +1168,7 @@ export class LocalMcpExecutor {
           exercises: [],
         };
 
-        await this.adapter.mutateStore("lifeos-health", (current) => ({
+        await this.mutateStore("lifeos-health", (current) => ({
           ...current,
           workouts: [newWorkout, ...(current.workouts ?? [])],
         }));
@@ -1194,32 +1265,32 @@ export class LocalMcpExecutor {
         if (!item) throw new Error(`Trash item '${id}' not found.`);
 
         // Remove from trash
-        await this.adapter.mutateStore("lifeos-trash", (current) =>
+        await this.mutateStore("lifeos-trash", (current) =>
           restoreItemOperation(current, id),
         );
 
         // Restore back to domain
         if (item.itemType === "task") {
           const task = normalizeTask(item.itemData);
-          await this.adapter.mutateStore("lifeos-tasks", (current) => ({
+          await this.mutateStore("lifeos-tasks", (current) => ({
             ...current,
             tasks: [task, ...(current.tasks ?? [])],
           }));
         } else if (item.itemType === "note") {
           const note = item.itemData as Record<string, unknown>;
-          await this.adapter.mutateStore("lifeos-notes", (current) => ({
+          await this.mutateStore("lifeos-notes", (current) => ({
             ...current,
             notes: [note as never, ...(current.notes ?? [])],
           }));
         } else if (item.itemType === "goal") {
           const goal = item.itemData as Record<string, unknown>;
-          await this.adapter.mutateStore("lifeos-goals", (current) => ({
+          await this.mutateStore("lifeos-goals", (current) => ({
             ...current,
             goals: [goal as never, ...(current.goals ?? [])],
           }));
         } else if (item.itemType === "habit") {
           const habit = item.itemData as Record<string, unknown>;
-          await this.adapter.mutateStore("lifeos-habits", (current) => ({
+          await this.mutateStore("lifeos-habits", (current) => ({
             ...current,
             habits: [...(current.habits ?? []), habit as never],
           }));

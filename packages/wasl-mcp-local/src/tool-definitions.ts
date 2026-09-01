@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { canonicalToolName, describeCanonicalTool, MCP_OBSOLETE_TOOLS } from "./tool-catalog.js";
 
 export interface ToolDefinition {
   name: string;
@@ -23,7 +24,12 @@ const SEARCH_FIELDS = {
 };
 const DATE_FIELDS = { from: ISO_DAY.optional(), to: ISO_DAY.optional() };
 
-export const WASL_TOOLS: ToolDefinition[] = [
+const BASE_WASL_TOOLS: ToolDefinition[] = [
+  {
+    name: "mcp_capabilities",
+    description: "Return safe permission and mutation-safety metadata for this Local MCP connection.",
+    schema: z.object({}),
+  },
   // -------------------------------------------------------------------------
   // Tasks
   // -------------------------------------------------------------------------
@@ -258,12 +264,12 @@ export const WASL_TOOLS: ToolDefinition[] = [
     }),
   },
   {
-    name: "toggle_habit_day",
-    description: "Toggle completion of a habit for a specific date in WASL Local.",
+    name: "set_habit_day_completed",
+    description: "Explicitly set completion of a habit for a specific date in WASL Local.",
     schema: z.object({
       id: z.string().describe("Habit ID"),
-      date: z.string().describe("ISO date (YYYY-MM-DD) to toggle"),
-      completed: z.boolean().optional().describe("Explicit completion status. Toggles if omitted."),
+      date: z.string().describe("ISO date (YYYY-MM-DD)"),
+      completed: z.boolean().describe("Desired completion state"),
     }),
   },
   {
@@ -522,3 +528,35 @@ export const WASL_TOOLS: ToolDefinition[] = [
     }),
   },
 ];
+
+function isWriteTool(toolName: string): boolean {
+  return !(
+    toolName === "mcp_capabilities" ||
+    toolName.startsWith("get_") ||
+    toolName.startsWith("list_") ||
+    toolName.startsWith("search_") ||
+    toolName.endsWith("_list") ||
+    toolName.endsWith("_search") ||
+    toolName.endsWith("_get")
+  );
+}
+
+const MUTATION_SAFETY_FIELDS = {
+  expectedVersion: z.string().datetime().optional().describe("Optimistic concurrency token returned as version by the latest write or updatedAt by get/list"),
+  idempotencyKey: z.string().trim().min(8).max(200).optional().describe("Stable retry key; reusing it with different arguments is rejected"),
+  confirmation: z.string().optional().describe("Exact confirmation for permanent operations; entity deletes use DELETE:<immutable-id>"),
+};
+
+export const WASL_TOOLS: ToolDefinition[] = BASE_WASL_TOOLS.filter(
+  (tool) => !MCP_OBSOLETE_TOOLS.has(tool.name),
+).map((tool) => {
+  const name = canonicalToolName(tool.name);
+  const mutates = isWriteTool(name);
+  const idFields = Object.keys(tool.schema.shape).filter((key) => key === "id" || key.endsWith("Id") || key.endsWith("Ids"));
+  return {
+    ...tool,
+    name,
+    description: describeCanonicalTool({ name, description: tool.description, mutates, idFields }),
+    schema: mutates ? tool.schema.extend(MUTATION_SAFETY_FIELDS) : tool.schema,
+  };
+});
