@@ -41,21 +41,14 @@ import { MarkdownRenderer, isRtlText } from "@/components/ui/MarkdownRenderer";
 import { Hydrate } from "@/lib/hydration";
 import { DynamicIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { TopicNotes } from "@/components/learning/TopicNotes";
 
 export default function TopicClient() {
   const params = useParams<{ topicId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const {
-    topics,
-    addNote,
-    updateNote,
-    deleteNote,
-  } = useTopicsData();
+  const { topics } = useTopicsData();
   const [editing, setEditing] = useState(false);
-  const [noteFormOpen, setNoteFormOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<TopicNote | undefined>();
-  const [readingNote, setReadingNote] = useState<TopicNote | undefined>();
 
   const rawId = params?.topicId;
   const topicId = (rawId && rawId !== "default") ? rawId : (searchParams?.get("id") || rawId);
@@ -126,73 +119,12 @@ export default function TopicClient() {
             <RoadmapCheckList topic={topic} color={topic.color} />
           </Card>
 
-          {/* Notes — Markdown-powered */}
-          <Card className="p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-4">
-              <SectionTitle>
-                <span className="flex items-center gap-1.5">
-                  <StickyNote className="h-3.5 w-3.5" /> Notes & Insights
-                </span>
-              </SectionTitle>
-              <button
-                onClick={() => { setEditingNote(undefined); setNoteFormOpen(true); }}
-                className="btn-hero flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold"
-              >
-                <Plus className="h-3.5 w-3.5" /> New Note
-              </button>
-            </div>
-
-            {topic.notes.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 p-8 text-center text-sm text-faint">
-                No notes yet. Click <strong className="text-accent">+ New Note</strong> to capture insights, formulas, gotchas, or anything you learn.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {topic.notes.map((n) => (
-                  <TopicNoteCard
-                    key={n.id}
-                    note={n}
-                    onRead={() => setReadingNote(n)}
-                    onEdit={() => { setEditingNote(n); setNoteFormOpen(true); }}
-                    onDelete={() => deleteNote(topic.id, n.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </Card>
+          <TopicNotes topic={topic} />
         </div>
       )}
 
       {topic && <TopicForm open={editing} onClose={() => setEditing(false)} topic={topic} />}
 
-      {/* Note Form Modal */}
-      {topic && (
-        <TopicNoteFormModal
-          open={noteFormOpen}
-          onClose={() => { setNoteFormOpen(false); setEditingNote(undefined); }}
-          topicId={topic.id}
-          note={editingNote}
-        />
-      )}
-
-      {/* Note Detail (Reader) View */}
-      {topic && readingNote && (
-        <TopicNoteDetailView
-          note={readingNote}
-          topicColor={topic.color}
-          onClose={() => setReadingNote(undefined)}
-          onEdit={() => {
-            const target = readingNote;
-            setReadingNote(undefined);
-            setEditingNote(target);
-            setNoteFormOpen(true);
-          }}
-          onDelete={() => {
-            deleteNote(topic.id, readingNote.id);
-            setReadingNote(undefined);
-          }}
-        />
-      )}
     </Hydrate>
   );
 }
@@ -882,4 +814,3 @@ function RoadmapCheckList({
     </div>
   );
 }
-

@@ -27,6 +27,10 @@ export interface TopicNote {
   text: string;
   createdAt: number;
   updatedAt: number;
+  pinned?: boolean;
+  contentType?: "note" | "read" | "listen" | "idea";
+  sourceUrl?: string;
+  author?: string;
 }
 
 export interface Topic {

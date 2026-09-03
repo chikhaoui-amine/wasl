@@ -172,6 +172,40 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
       id: z.string().describe("Note ID to move to Trash"),
     }),
   },
+  {
+    name: "note_categories_list",
+    description: "List note categories and their immutable IDs.",
+    schema: z.object(PAGE_FIELDS),
+  },
+  {
+    name: "note_categories_get",
+    description: "Get one note category by immutable ID.",
+    schema: z.object({ id: z.string().min(1) }),
+  },
+  {
+    name: "add_note_category",
+    description: "Create a custom note category in WASL Local.",
+    schema: z.object({
+      name: z.string().min(1),
+      color: z.string().optional(),
+      icon: z.string().optional(),
+    }),
+  },
+  {
+    name: "update_note_category",
+    description: "Update a custom note category by immutable ID.",
+    schema: z.object({
+      id: z.string().min(1),
+      name: z.string().optional(),
+      color: z.string().optional(),
+      icon: z.string().optional(),
+    }),
+  },
+  {
+    name: "delete_note_category",
+    description: "Delete a custom note category by immutable ID.",
+    schema: z.object({ id: z.string().min(1) }),
+  },
 
   // -------------------------------------------------------------------------
   // Goals
@@ -257,10 +291,23 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
     description: "Add a new habit in WASL Local.",
     schema: z.object({
       title: z.string().describe("Habit title"),
+      category: z.string().optional().describe("Habit category"),
       targetPerWeek: z.number().min(1).max(7).optional().describe("Target completions per week (1-7, default 7)"),
       color: z.string().optional().describe("Hex color or color name"),
       icon: z.string().optional().describe("Icon name"),
       idempotencyKey: z.string().optional(),
+    }),
+  },
+  {
+    name: "update_habit",
+    description: "Update an existing habit in WASL Local.",
+    schema: z.object({
+      id: z.string().describe("Habit ID"),
+      title: z.string().optional(),
+      category: z.string().optional().describe("Habit category; empty string clears it"),
+      targetPerWeek: z.number().min(1).max(7).optional(),
+      color: z.string().optional(),
+      icon: z.string().optional(),
     }),
   },
   {
@@ -423,17 +470,6 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
     }),
   },
   {
-    name: "transfer_money",
-    description: "Transfer money between two accounts in WASL Local.",
-    schema: z.object({
-      fromAccountId: z.string(),
-      toAccountId: z.string(),
-      amount: z.number().positive(),
-      title: z.string().optional(),
-      date: ISO_DAY.optional(),
-    }),
-  },
-  {
     name: "get_health",
     description: "Fetch health & workout history from WASL Local (requires Health permission).",
     schema: z.object({
@@ -465,6 +501,21 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
       durationMinutes: z.number().positive().optional(),
       notes: z.string().optional(),
       idempotencyKey: z.string().optional(),
+    }),
+  },
+  {
+    name: "update_health_day",
+    description: "Update or clear daily health fields in WASL Local.",
+    schema: z.object({
+      date: ISO_DAY.optional(),
+      steps: z.number().nullable().optional(),
+      sleepH: z.number().nullable().optional(),
+      waterCups: z.number().nullable().optional(),
+      weightKg: z.number().nullable().optional(),
+      soreness: z.number().nullable().optional(),
+      energy: z.number().nullable().optional(),
+      sleepQuality: z.string().nullable().optional(),
+      sleepNote: z.string().nullable().optional(),
     }),
   },
   // -------------------------------------------------------------------------
@@ -505,6 +556,33 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
     schema: z.object({ id: z.string().min(1) }),
   },
   {
+    name: "add_recurring_task",
+    description: "Create a recurring task series in WASL Local.",
+    schema: z.object({
+      title: z.string().min(1),
+      frequency: z.enum(["daily", "weekly", "monthly", "custom"]),
+      startDate: ISO_DAY.optional(),
+      endDate: ISO_DAY.optional(),
+      weekDays: z.array(z.number().int().min(0).max(6)).optional(),
+      monthDay: z.number().int().min(1).max(31).optional(),
+      intervalDays: z.number().int().positive().optional(),
+    }),
+  },
+  {
+    name: "update_recurring_task",
+    description: "Update a recurring task series and remove fields that do not apply to its frequency.",
+    schema: z.object({
+      id: z.string().min(1),
+      title: z.string().optional(),
+      frequency: z.enum(["daily", "weekly", "monthly", "custom"]).optional(),
+      startDate: ISO_DAY.optional(),
+      endDate: ISO_DAY.optional(),
+      weekDays: z.array(z.number().int().min(0).max(6)).optional(),
+      monthDay: z.number().int().min(1).max(31).optional(),
+      intervalDays: z.number().int().positive().optional(),
+    }),
+  },
+  {
     name: "topics_list",
     description: "List learning topics without embedding roadmaps, resources, or notes.",
     schema: z.object(PAGE_FIELDS),
@@ -518,6 +596,21 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
     name: "topics_get",
     description: "Get one complete learning topic by exact ID.",
     schema: z.object({ id: z.string().min(1) }),
+  },
+  {
+    name: "add_topic_note",
+    description: "Add a nested note to a learning topic in WASL Local.",
+    schema: z.object({ topicId: z.string().min(1), title: z.string().optional(), text: z.string().min(1), pinned: z.boolean().optional(), contentType: z.enum(["note", "read", "listen", "idea"]).optional(), sourceUrl: z.string().optional(), author: z.string().optional() }),
+  },
+  {
+    name: "update_topic_note",
+    description: "Update a nested topic note by immutable IDs.",
+    schema: z.object({ topicId: z.string().min(1), noteId: z.string().min(1), title: z.string().optional(), text: z.string().optional(), pinned: z.boolean().optional(), contentType: z.enum(["note", "read", "listen", "idea"]).optional(), sourceUrl: z.string().optional(), author: z.string().optional() }),
+  },
+  {
+    name: "delete_topic_note",
+    description: "Delete a nested topic note by immutable IDs.",
+    schema: z.object({ topicId: z.string().min(1), noteId: z.string().min(1) }),
   },
   {
     name: "search_all",
@@ -542,7 +635,7 @@ function isWriteTool(toolName: string): boolean {
 }
 
 const MUTATION_SAFETY_FIELDS = {
-  expectedVersion: z.string().datetime().optional().describe("Optimistic concurrency token returned as version by the latest write or updatedAt by get/list"),
+  expectedVersion: z.string().datetime({ offset: true }).optional().describe("Optimistic concurrency token returned as version by the latest write or updatedAt by get/list"),
   idempotencyKey: z.string().trim().min(8).max(200).optional().describe("Stable retry key; reusing it with different arguments is rejected"),
   confirmation: z.string().optional().describe("Exact confirmation for permanent operations; entity deletes use DELETE:<immutable-id>"),
 };
@@ -552,7 +645,12 @@ export const WASL_TOOLS: ToolDefinition[] = BASE_WASL_TOOLS.filter(
 ).map((tool) => {
   const name = canonicalToolName(tool.name);
   const mutates = isWriteTool(name);
-  const idFields = Object.keys(tool.schema.shape).filter((key) => key === "id" || key.endsWith("Id") || key.endsWith("Ids"));
+  const idFields = mutates
+    ? Object.keys(tool.schema.shape).filter((key) =>
+        (key === "id" || key.endsWith("Id") || key.endsWith("Ids")) &&
+        !(tool.schema.shape[key] as z.ZodType).safeParse(undefined).success,
+      )
+    : [];
   return {
     ...tool,
     name,

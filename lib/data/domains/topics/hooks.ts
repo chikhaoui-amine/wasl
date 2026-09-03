@@ -26,6 +26,7 @@ import {
   addNoteOperation,
   updateNoteOperation,
   deleteNoteOperation,
+  toggleNotePinOperation,
   type Topic,
   type TopicInput,
   type TopicStep,
@@ -201,7 +202,7 @@ export function useTopicsData() {
     await mutation.mutateAsync((current) => deleteResourceOperation(current, topicId, id, now));
   };
 
-  const addNote = async (topicId: string, title: string, text: string): Promise<void> => {
+  const addNote = async (topicId: string, title: string, text: string, metadata: Partial<TopicNote> = {}): Promise<TopicNote> => {
     const now = Date.now();
     const newNote: TopicNote = {
       id: crypto.randomUUID(),
@@ -209,8 +210,12 @@ export function useTopicsData() {
       text,
       createdAt: now,
       updatedAt: now,
+      pinned: false,
+      contentType: "note",
+      ...metadata,
     };
     await mutation.mutateAsync((current) => addNoteOperation(current, topicId, newNote, now));
+    return newNote;
   };
 
   const updateNote = async (
@@ -218,16 +223,22 @@ export function useTopicsData() {
     noteId: string,
     title: string,
     text: string,
+    patch: Partial<TopicNote> = {},
   ): Promise<void> => {
     const now = Date.now();
     await mutation.mutateAsync((current) =>
-      updateNoteOperation(current, topicId, noteId, title, text, now),
+      updateNoteOperation(current, topicId, noteId, title, text, now, patch),
     );
   };
 
   const deleteNote = async (topicId: string, id: string): Promise<void> => {
     const now = Date.now();
     await mutation.mutateAsync((current) => deleteNoteOperation(current, topicId, id, now));
+  };
+
+  const toggleNotePin = async (topicId: string, id: string): Promise<void> => {
+    const now = Date.now();
+    await mutation.mutateAsync((current) => toggleNotePinOperation(current, topicId, id, now));
   };
 
   return {
@@ -252,5 +263,6 @@ export function useTopicsData() {
     addNote,
     updateNote,
     deleteNote,
+    toggleNotePin,
   };
 }

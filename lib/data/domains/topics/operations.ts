@@ -28,6 +28,10 @@ export interface TopicNote {
   text: string;
   createdAt: number;
   updatedAt: number;
+  pinned?: boolean;
+  contentType?: "note" | "read" | "listen" | "idea";
+  sourceUrl?: string;
+  author?: string;
 }
 
 export interface Topic {
@@ -186,6 +190,10 @@ export function normalizeTopic(raw: unknown): Topic {
     text: typeof n.text === "string" ? n.text : "",
     createdAt: typeof n.createdAt === "number" ? n.createdAt : Date.now(),
     updatedAt: typeof n.updatedAt === "number" ? n.updatedAt : Date.now(),
+    pinned: Boolean(n.pinned),
+    contentType: n.contentType === "read" || n.contentType === "listen" || n.contentType === "idea" ? n.contentType : "note",
+    sourceUrl: typeof n.sourceUrl === "string" ? n.sourceUrl : undefined,
+    author: typeof n.author === "string" ? n.author : undefined,
   }));
 
   return {
@@ -576,6 +584,7 @@ export function updateNoteOperation(
   title: string,
   text: string,
   now: number = Date.now(),
+  patch: Partial<TopicNote> = {},
 ): TopicsPersistedState {
   const base = normalizeTopicsState(current);
   return {
@@ -586,7 +595,7 @@ export function updateNoteOperation(
       (t) => ({
         ...t,
         notes: t.notes.map((n) =>
-          n.id === noteId ? { ...n, title, text, updatedAt: now } : n,
+          n.id === noteId ? { ...n, title, text, ...patch, updatedAt: now } : n,
         ),
       }),
       now,
@@ -612,6 +621,22 @@ export function deleteNoteOperation(
       }),
       now,
     ),
+  };
+}
+
+export function toggleNotePinOperation(
+  current: TopicsPersistedState | null | undefined,
+  topicId: string,
+  noteId: string,
+  now: number = Date.now(),
+): TopicsPersistedState {
+  const base = normalizeTopicsState(current);
+  return {
+    ...base,
+    topics: mutateTopic(base.topics, topicId, (topic) => ({
+      ...topic,
+      notes: topic.notes.map((note) => note.id === noteId ? { ...note, pinned: !note.pinned, updatedAt: now } : note),
+    }), now),
   };
 }
 

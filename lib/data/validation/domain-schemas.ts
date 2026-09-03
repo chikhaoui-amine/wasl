@@ -310,6 +310,10 @@ export const TopicNoteSchema = z.object({
   text: z.string(),
   createdAt: z.number(),
   updatedAt: z.number(),
+  pinned: z.boolean().optional(),
+  contentType: NoteContentTypeSchema.optional(),
+  sourceUrl: z.string().optional(),
+  author: z.string().optional(),
 });
 
 export const TopicSchema = z.object({
@@ -437,6 +441,7 @@ export const JournalStateSchema = z.object({
 export const HabitSchema = z.object({
   id: z.string().min(1),
   name: z.string(),
+  category: z.string().optional(),
   icon: z.string(),
   targetPerWeek: z.number(),
   color: z.string(),
@@ -449,6 +454,9 @@ export const HabitsStateSchema = z.object({
 });
 
 // ============================================================
+// 10. MONEY DOMAIN SCHEMA (lifeos-money)
+// ============================================================
+
 export const AccountTypeSchema = z.enum(["bank", "card", "cash", "savings", "investment", "wallet"]);
 
 export const AccountSchema = z.object({

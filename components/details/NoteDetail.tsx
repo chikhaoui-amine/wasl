@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { NoteFormData } from "@/components/forms/NoteForm";
 
 const TYPE_ICONS: Record<NoteContentType, typeof StickyNote> = {
   note: StickyNote,
@@ -43,10 +44,16 @@ interface NoteDetailProps {
   note?: Note;
   onClose: () => void;
   onEdit: () => void;
+  data?: Pick<NoteFormData, "categories" | "deleteNote"> & {
+    togglePin?: (id: string) => Promise<void>;
+  };
 }
 
-export function NoteDetail({ note, onClose, onEdit }: NoteDetailProps) {
-  const { togglePin, deleteNote, categories } = useNotesData();
+export function NoteDetail({ note, onClose, onEdit, data }: NoteDetailProps) {
+  const notesData = useNotesData();
+  const categories = data?.categories ?? notesData.categories;
+  const deleteNote = data?.deleteNote ?? notesData.deleteNote;
+  const togglePin = data?.togglePin ?? notesData.togglePin;
   const [copied, setCopied] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 

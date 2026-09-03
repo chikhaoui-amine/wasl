@@ -54,6 +54,14 @@ import {
 } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
+export interface NoteFormData {
+  categories: readonly { id?: string; name: string; color?: string }[];
+  addNote: (input: { title: string; body: string; tag: string; pinned?: boolean; contentType?: NoteContentType; sourceUrl?: string; author?: string }) => Promise<Note>;
+  updateNote: (id: string, patch: Partial<Note>) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  edition?: string;
+}
+
 const CONTENT_TYPES: { value: NoteContentType; label: string; icon: typeof StickyNote }[] = [
   { value: "note", label: "Note", icon: StickyNote },
   { value: "read", label: "Read", icon: BookOpen },
@@ -89,12 +97,15 @@ export function NoteForm({
   open,
   onClose,
   note,
+  data,
 }: {
   open: boolean;
   onClose: () => void;
   note?: Note;
+  data?: NoteFormData;
 }) {
-  const { categories, addNote, updateNote, deleteNote, edition } = useNotesData();
+  const notesData = useNotesData();
+  const { categories, addNote, updateNote, deleteNote, edition } = data ?? notesData;
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
