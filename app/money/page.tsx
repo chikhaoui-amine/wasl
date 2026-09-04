@@ -61,6 +61,22 @@ function getCurrencyLabel(currency: string) {
   }
 }
 
+function formatMultiCurrencyBalance(accounts: Account[], transactions: Txn[], defaultCurrency: string): string {
+  const totals = new Map<string, number>();
+  if (accounts.length === 0) {
+    totals.set(defaultCurrency, transactions.reduce((sum, txn) => sum + (txn.amount || 0), 0));
+  } else {
+    for (const account of accounts) {
+      const code = account.currency || defaultCurrency;
+      totals.set(code, (totals.get(code) || 0) + accountBalance(account, transactions));
+    }
+  }
+  return [...totals.entries()]
+    .filter(([, amount]) => amount !== 0 || totals.size === 1)
+    .map(([code, amount]) => fmtMoney(amount, code))
+    .join(" · ");
+}
+
 export default function MoneyPage() {
   const { accounts, transactions, savings, currency, setCurrency } = useMoneyData();
   const [creating, setCreating] = useState(false);
@@ -73,6 +89,7 @@ export default function MoneyPage() {
 
   // Computed values based on selection
   const netWorth = totalNetWorth(accounts, transactions);
+  const netWorthDisplay = formatMultiCurrencyBalance(accounts, transactions, currency);
   const activeBal = selectedAccount
     ? accountBalance(selectedAccount, transactions)
     : netWorth;
@@ -171,7 +188,7 @@ export default function MoneyPage() {
               </div>
               <div className="mt-4">
                 <p className="text-xl font-bold text-text tabular">
-                  {fmtMoney(netWorth, currency)}
+                  {netWorthDisplay}
                 </p>
                 <p className="text-[11px] text-faint mt-0.5">
                   {accounts.length} active account{accounts.length === 1 ? "" : "s"}
@@ -264,7 +281,7 @@ export default function MoneyPage() {
           />
           <StatTile
             label={selectedAccount ? `${selectedAccount.name} Balance` : "Total Balance"}
-            value={fmtMoney(activeBal, selectedAccount?.currency || currency)}
+            value={selectedAccount ? fmtMoney(activeBal, selectedAccount.currency || currency) : netWorthDisplay}
             hint={selectedAccount ? "starting balance + transactions" : "all accounts & transactions"}
           />
         </div>
