@@ -348,7 +348,7 @@ export default function HabitsPage() {
   );
 }
 
-/* ---------- detail: 12-week clickable history ---------- */
+/* ---------- detail: compact 28-day clickable history ---------- */
 
 function HabitDetail({
   habit,
@@ -364,7 +364,7 @@ function HabitDetail({
 
   const t = todayISO();
   const thisMonday = weekISO()[0];
-  const nWeeks = 12;
+  const nWeeks = 4;
   const weeks = Array.from({ length: nWeeks }, (_, wi) =>
     Array.from({ length: 7 }, (_, di) => addDays(thisMonday, -(nWeeks - 1 - wi) * 7 + di)),
   );
@@ -406,7 +406,7 @@ function HabitDetail({
               <p className="text-sm font-semibold text-text">Activity history</p>
               <p className="mt-0.5 text-[11px] text-faint">Click any past day to correct your history.</p>
             </div>
-            <span className="shrink-0 rounded-full bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent">12 weeks</span>
+            <span className="shrink-0 rounded-full bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent">28 days</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-border/60 bg-surface-2/30 p-3">
             <div className="min-w-[500px]">
