@@ -1,15 +1,21 @@
 import type { Txn, MonthAgg, Account } from "./types";
 
 export const fmtMoney = (n: number, currency: string = "DA") => {
-  if (currency === "DA") return `${n < 0 ? "−" : ""}${Math.abs(Math.round(n)).toLocaleString("en-US")} DA`;
+  const sign = n < 0 ? "−" : "";
+  const absolute = Math.abs(n);
+  const formatted = absolute.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (currency === "DA") return `${sign}${formatted} DA`;
+  // The app supports user-facing symbols (for example "$"), which are not
+  // valid ISO-4217 codes for Intl.NumberFormat.
+  if (!/^[A-Z]{3}$/.test(currency)) return `${sign}${formatted} ${currency}`;
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(n).replace("-", "−");
   } catch {
-    return `${n < 0 ? "−" : ""}${Math.abs(Math.round(n)).toLocaleString("en-US")} ${currency}`;
+    return `${sign}${formatted} ${currency}`;
   }
 };
 
