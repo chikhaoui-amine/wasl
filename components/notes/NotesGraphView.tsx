@@ -27,6 +27,8 @@ interface NotesGraphViewProps {
     patch: { name?: string; color?: string; icon?: string; linkedCategoryIds?: string[] },
   ) => Promise<void>;
   onNewNote: () => void;
+  graphPositions?: Record<string, { x: number; y: number }>;
+  onPersistNodePosition?: (nodeId: string, position: { x: number; y: number }) => Promise<void>;
 }
 
 export function NotesGraphView({
@@ -37,6 +39,8 @@ export function NotesGraphView({
   onSelectCategory,
   onUpdateCategory,
   onNewNote,
+  graphPositions = {},
+  onPersistNodePosition,
 }: NotesGraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -115,6 +119,12 @@ export function NotesGraphView({
         if (node.type === "category") {
           node.isFixed = old.isFixed;
         }
+      } else if (graphPositions[node.id]) {
+        node.x = graphPositions[node.id].x;
+        node.y = graphPositions[node.id].y;
+        node.vx = 0;
+        node.vy = 0;
+        node.isFixed = true;
       }
     }
 
@@ -122,7 +132,7 @@ export function NotesGraphView({
     edgesRef.current = newEdges;
     simulationTicksRef.current = 0;
     isSimulatingRef.current = true;
-  }, [notes, categories]);
+  }, [notes, categories, graphPositions]);
 
   const matchingIds = useMemo(() => {
     const { nodes } = buildGraphData(notes, categories);
@@ -876,8 +886,11 @@ export function NotesGraphView({
         }
       }
     } else if (draggedNodeRef.current) {
+      const dragged = draggedNodeRef.current;
       draggedNodeRef.current.vx = 0;
       draggedNodeRef.current.vy = 0;
+      dragged.isFixed = true;
+      onPersistNodePosition?.(dragged.id, { x: dragged.x, y: dragged.y }).catch(() => undefined);
       isSimulatingRef.current = true;
       simulationTicksRef.current = 0;
     }

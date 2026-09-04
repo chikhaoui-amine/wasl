@@ -17,6 +17,7 @@ import {
   addCategoryOperation,
   updateCategoryOperation,
   deleteCategoryOperation,
+  updateGraphPositionOperation,
   DEFAULT_CATEGORIES,
   type Note,
   type NoteInput,
@@ -133,12 +134,7 @@ export function useNotesData() {
   );
 
   const addCategory = useCallback(
-    async (input: {
-      name: string;
-      color: string;
-      icon?: string;
-      linkedCategoryIds?: string[];
-    }): Promise<NoteCategory> => {
+    async (input: { name: string; color: string; icon?: string; linkedCategoryIds?: string[] }): Promise<NoteCategory> => {
       const cat: NoteCategory = {
         id: `cat-${crypto.randomUUID()}`,
         name: input.name.trim(),
@@ -170,8 +166,16 @@ export function useNotesData() {
     [mutation],
   );
 
+  const updateGraphPosition = useCallback(
+    async (nodeId: string, position: { x: number; y: number }): Promise<void> => {
+      await mutation.mutateAsync((current) => updateGraphPositionOperation(current, nodeId, position));
+    },
+    [mutation],
+  );
+
   return {
     notes: state.notes,
+    graphPositions: state.graphPositions || {},
     categories: state.categories.length > 0 ? state.categories : DEFAULT_CATEGORIES,
     isLoading,
     error,
@@ -183,5 +187,6 @@ export function useNotesData() {
     addCategory,
     updateCategory,
     deleteCategory,
+    updateGraphPosition,
   };
 }

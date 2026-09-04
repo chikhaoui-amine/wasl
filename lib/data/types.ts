@@ -23,6 +23,7 @@ import type { RecurringTask } from "./domains/recurring";
 export interface NotesPersistedState {
   notes: Note[];
   categories: NoteCategory[];
+  graphPositions?: Record<string, { x: number; y: number }>;
 }
 
 /**

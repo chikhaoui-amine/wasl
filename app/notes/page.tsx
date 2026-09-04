@@ -142,7 +142,7 @@ function NoteCard({
 }
 
 export default function NotesPage() {
-  const { notes, categories, addNote, addCategory, updateCategory } = useNotesData();
+  const { notes, categories, addNote, addCategory, updateCategory, updateGraphPosition, graphPositions } = useNotesData();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const handleUpdateCategoryLinks = async (
@@ -415,6 +415,8 @@ export default function NotesPage() {
           <NotesGraphView
             notes={sorted}
             categories={categories}
+            graphPositions={graphPositions}
+            onPersistNodePosition={updateGraphPosition}
             search={search}
             onSelectNote={(n) => setReadingNote(n)}
             onSelectCategory={(catName) => setSelectedCategory(catName)}

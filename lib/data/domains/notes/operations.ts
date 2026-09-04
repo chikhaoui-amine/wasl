@@ -121,7 +121,17 @@ export function normalizeNotesState(raw: unknown): NotesPersistedState {
   return {
     notes,
     categories,
+    graphPositions: obj.graphPositions && typeof obj.graphPositions === "object" ? obj.graphPositions as NotesPersistedState["graphPositions"] : {},
   };
+}
+
+export function updateGraphPositionOperation(
+  current: NotesPersistedState | null | undefined,
+  nodeId: string,
+  position: { x: number; y: number },
+): NotesPersistedState {
+  const base = normalizeNotesState(current);
+  return { ...base, graphPositions: { ...(base.graphPositions || {}), [nodeId]: position } };
 }
 
 export function addNoteOperation(
@@ -202,7 +212,12 @@ export function deleteCategoryOperation(
 ): NotesPersistedState {
   const base = normalizeNotesState(current);
   const targetCat = base.categories.find((c) => c.id === id);
-  const updatedCategories = base.categories.filter((c) => c.id !== id);
+  const updatedCategories = base.categories
+    .filter((c) => c.id !== id)
+    .map((c) => ({
+      ...c,
+      linkedCategoryIds: c.linkedCategoryIds?.filter((lid) => lid !== id),
+    }));
   const defaultTagName = updatedCategories[0]?.name || "Personal";
 
   const updatedNotes = targetCat

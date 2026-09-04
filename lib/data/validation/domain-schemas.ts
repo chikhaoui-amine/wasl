@@ -30,6 +30,7 @@ export const NoteSchema = z.object({
 export const NotesStateSchema = z.object({
   notes: z.array(NoteSchema),
   categories: z.array(NoteCategorySchema),
+  graphPositions: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).optional(),
 });
 
 // ============================================================

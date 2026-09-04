@@ -316,6 +316,7 @@ export function stepSimulation(
 
   // 1. Gentle center gravity anchor so whole graph stays compactly centered around (0, 0)
   for (const node of nodes) {
+    if (node.isFixed) continue;
     if (node.id === activeDraggedHubId) continue;
     if (node.type === "category") {
       node.vx -= node.x * 0.0035 * alpha;
@@ -326,6 +327,7 @@ export function stepSimulation(
   // 2. Strong spring restoring each note directly into its slot relative to its parent hub
   for (const node of nodes) {
     if (node.type !== "note" || !node.hubId) continue;
+    if (node.isFixed) continue;
     const hub = nodeMap.get(node.hubId);
     if (!hub) continue;
 
@@ -471,6 +473,11 @@ export function stepSimulation(
   // 5. Apply velocities with damping
   const damping = 0.74;
   for (const node of nodes) {
+    if (node.isFixed) {
+      node.vx = 0;
+      node.vy = 0;
+      continue;
+    }
     if (node.id === activeDraggedHubId) {
       node.vx = 0;
       node.vy = 0;
