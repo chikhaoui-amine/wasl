@@ -393,61 +393,66 @@ function HabitDetail({
             { label: "30-day rate", value: `${rate}%` },
             { label: "Total", value: total },
           ].map((s) => (
-            <div key={s.label} className="rounded-[12px] bg-surface-2 p-2.5 sm:p-3 text-center">
-              <div className="tabular font-display text-base sm:text-lg font-semibold text-text">{s.value}</div>
-              <div className="text-[10px] text-faint">{s.label}</div>
+            <div key={s.label} className="rounded-[12px] border border-border/60 bg-surface-2/80 p-2.5 sm:p-3 text-center">
+              <div className="tabular font-display text-lg sm:text-xl font-semibold text-text">{s.value}</div>
+              <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-faint">{s.label}</div>
             </div>
           ))}
         </div>
 
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-faint">
-            Last 12 weeks — click any past day to fix history
-          </p>
-          <div className="flex flex-col gap-[3px]">
-            {weeks.map((row, i) => (
-              <div key={i} className="flex gap-[3px]">
-                {row.map((iso) => {
-                  const isFuture = iso > t;
-                  const isPast = iso < t;
-                  const isDone = !!habit.log[iso];
-                  const isMissed = isPast && !isDone;
-
-                  return (
-                    <button
-                      key={iso}
-                      disabled={isFuture}
-                      onClick={() => toggleDay(habit.id, iso)}
-                      title={
-                        isFuture
-                          ? iso
-                          : isDone
-                          ? `${iso} — Completed`
-                          : isMissed
-                          ? `${iso} — Missed (click to fix)`
-                          : `${iso} — Today`
-                      }
-                      className={cn(
-                        "h-5 flex-1 rounded-[4px] transition-transform relative flex items-center justify-center text-[9px] font-bold",
-                        !isFuture && "hover:scale-y-110",
-                        iso === t && "ring-1 ring-ring",
-                        isMissed && "border border-danger/40 bg-danger/15 text-danger hover:bg-danger/25",
-                      )}
-                      style={{
-                        background: isDone ? habit.color : isMissed ? undefined : "var(--surface-2)",
-                        opacity: isFuture ? 0.25 : 1,
-                      }}
-                    >
-                      {isMissed && <span className="text-[8px] font-black leading-none">✕</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-text">Activity history</p>
+              <p className="mt-0.5 text-[11px] text-faint">Click any past day to correct your history.</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent">12 weeks</span>
           </div>
-          <div className="mt-1 flex justify-between text-[9px] text-faint">
-            <span>{fromISO(weeks[0][0]).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-            <span>today</span>
+          <div className="overflow-x-auto rounded-xl border border-border/60 bg-surface-2/30 p-3">
+            <div className="min-w-[500px]">
+              <div className="mb-1 grid grid-cols-7 gap-[3px] text-center text-[9px] font-semibold uppercase tracking-wide text-faint">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}
+              </div>
+              <div className="flex flex-col gap-[3px]">
+                {weeks.map((row, i) => (
+                  <div key={i} className="flex gap-[3px]">
+                    {row.map((iso) => {
+                      const isFuture = iso > t;
+                      const isPast = iso < t;
+                      const isDone = !!habit.log[iso];
+                      const isMissed = isPast && !isDone;
+
+                      return (
+                        <button
+                          key={iso}
+                          disabled={isFuture}
+                          onClick={() => toggleDay(habit.id, iso)}
+                          title={isFuture ? iso : isDone ? `${iso} — Completed` : isMissed ? `${iso} — Missed (click to fix)` : `${iso} — Today`}
+                          className={cn(
+                            "relative h-7 flex-1 rounded-[5px] transition-all flex items-center justify-center text-[9px] font-semibold",
+                            !isFuture && "hover:scale-y-110 hover:brightness-110",
+                            iso === t && "ring-2 ring-accent ring-offset-1 ring-offset-surface-2",
+                            isMissed ? "border border-danger/30 bg-danger/10 text-danger/70" : "bg-surface-2 text-faint",
+                          )}
+                          style={{ background: isDone ? habit.color : undefined, opacity: isFuture ? 0.3 : 1 }}
+                        >
+                          {isDone ? "✓" : isMissed ? "·" : iso === t ? "•" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex justify-between text-[9px] text-faint">
+                <span>{fromISO(weeks[0][0]).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                <span>{fromISO(weeks[weeks.length - 1][6]).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-faint">
+            <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm" style={{ background: habit.color }} /> Completed</span>
+            <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm border border-danger/40 bg-danger/10" /> Missed</span>
+            <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm ring-1 ring-accent" /> Today</span>
           </div>
         </div>
 
