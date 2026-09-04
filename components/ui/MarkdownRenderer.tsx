@@ -137,10 +137,10 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   return (
     <>
       <div
-        dir={isRtl ? "rtl" : "ltr"}
+        dir="auto"
         className={cn(
           "prose-wasl prose-lifeos text-text leading-relaxed clear-both",
-          isRtl ? "text-right" : "text-left",
+          "text-start",
           className,
         )}
       >
@@ -149,27 +149,27 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           remarkPlugins={[remarkGfm, remarkBreaks]}
           components={{
             h1: ({ children }) => (
-              <h1 className={cn("font-display text-2xl sm:text-3xl font-bold tracking-tight text-text mt-6 mb-3 border-b border-border/50 pb-2", isRtl ? "text-right" : "text-left")}>
+              <h1 dir="auto" className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-text mt-6 mb-3 border-b border-border/50 pb-2 text-start">
                 {children}
               </h1>
             ),
             h2: ({ children }) => (
-              <h2 className={cn("font-display text-xl sm:text-2xl font-bold tracking-tight text-text mt-5 mb-2.5", isRtl ? "text-right" : "text-left")}>
+              <h2 dir="auto" className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text mt-5 mb-2.5 text-start">
                 {children}
               </h2>
             ),
             h3: ({ children }) => (
-              <h3 className={cn("font-display text-lg sm:text-xl font-semibold text-text mt-4 mb-2", isRtl ? "text-right" : "text-left")}>
+              <h3 dir="auto" className="font-display text-lg sm:text-xl font-semibold text-text mt-4 mb-2 text-start">
                 {children}
               </h3>
             ),
             h4: ({ children }) => (
-              <h4 className={cn("font-display text-base font-semibold text-text mt-3 mb-1.5", isRtl ? "text-right" : "text-left")}>
+              <h4 dir="auto" className="font-display text-base font-semibold text-text mt-3 mb-1.5 text-start">
                 {children}
               </h4>
             ),
             p: ({ children }) => (
-              <div className={cn("text-base leading-relaxed text-text/90 my-2 font-normal", isRtl ? "text-right" : "text-left")}>
+              <div dir="auto" className="text-base leading-relaxed text-text/90 my-2 font-normal text-start">
                 {children}
               </div>
             ),
@@ -180,20 +180,20 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
               <em className="italic text-text/90">{children}</em>
             ),
             ul: ({ children }) => (
-              <ul className={cn("my-3 list-disc space-y-1.5 text-base text-text/90", isRtl ? "mr-6 ml-0 text-right" : "ml-6 mr-0 text-left")}>
+              <ul dir="auto" className="my-3 list-disc space-y-1.5 text-base text-text/90 ms-6">
                 {children}
               </ul>
             ),
             ol: ({ children }) => (
-              <ol className={cn("my-3 list-decimal space-y-1.5 text-base text-text/90", isRtl ? "mr-6 ml-0 text-right" : "ml-6 mr-0 text-left")}>
+              <ol dir="auto" className="my-3 list-decimal space-y-1.5 text-base text-text/90 ms-6">
                 {children}
               </ol>
             ),
             li: ({ children, className: liClassName }) => (
-              <li className={cn("leading-relaxed", isRtl ? "text-right" : "text-left", liClassName)}>{children}</li>
+              <li dir="auto" className={cn("leading-relaxed text-start", liClassName)}>{children}</li>
             ),
             blockquote: ({ children }) => (
-              <blockquote className={cn("my-4 bg-accent/5 px-4 py-3 text-base italic text-muted", isRtl ? "border-r-4 border-accent rounded-l-xl text-right" : "border-l-4 border-accent rounded-r-xl text-left")}>
+              <blockquote dir="auto" className="my-4 border-s-4 border-accent rounded-s-xl bg-accent/5 px-4 py-3 text-base italic text-muted text-start">
                 {children}
               </blockquote>
             ),
