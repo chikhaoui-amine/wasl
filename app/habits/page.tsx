@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Flame, GripVertical, Pencil, Plus, Trophy } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Flame, GripVertical, Pencil, Plus, Trophy } from "lucide-react";
 import {
   useHabitsData,
   habitStreak,
@@ -348,7 +348,7 @@ export default function HabitsPage() {
   );
 }
 
-/* ---------- detail: compact 28-day clickable history ---------- */
+/* ---------- detail: navigable calendar history ---------- */
 
 function HabitDetail({
   habit,
@@ -360,14 +360,22 @@ function HabitDetail({
   onEdit: () => void;
 }) {
   const { toggleDay } = useHabitsData();
+  const t = todayISO();
+  const [monthKey, setMonthKey] = useState(t.slice(0, 7));
   if (!habit) return <Modal open={false} onClose={onClose} title="">{null}</Modal>;
 
-  const t = todayISO();
-  const thisMonday = weekISO()[0];
-  const nWeeks = 4;
-  const weeks = Array.from({ length: nWeeks }, (_, wi) =>
-    Array.from({ length: 7 }, (_, di) => addDays(thisMonday, -(nWeeks - 1 - wi) * 7 + di)),
+  const [year, month] = monthKey.split("-").map(Number);
+  const firstDay = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const leadingDays = (firstDay.getDay() + 6) % 7;
+  const calendarDays = Array.from({ length: leadingDays + daysInMonth }, (_, index) =>
+    index < leadingDays ? null : `${monthKey}-${String(index - leadingDays + 1).padStart(2, "0")}`,
   );
+  while (calendarDays.length % 7) calendarDays.push(null);
+  const shiftMonth = (delta: number) => {
+    const next = new Date(year, month - 1 + delta, 1);
+    setMonthKey(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`);
+  };
 
   const streak = habitStreak(habit);
   const best = bestStreak(habit);
@@ -406,47 +414,23 @@ function HabitDetail({
               <p className="text-sm font-semibold text-text">Activity history</p>
               <p className="mt-0.5 text-[11px] text-faint">Click any past day to correct your history.</p>
             </div>
-            <span className="shrink-0 rounded-full bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent">28 days</span>
+            <span className="shrink-0 rounded-full bg-accent/10 px-2 py-1 text-[10px] font-semibold text-accent">Full history</span>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-border/60 bg-surface-2/30 p-3">
-            <div className="min-w-[500px]">
-              <div className="mb-1 grid grid-cols-7 gap-[3px] text-center text-[9px] font-semibold uppercase tracking-wide text-faint">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}
-              </div>
-              <div className="flex flex-col gap-[3px]">
-                {weeks.map((row, i) => (
-                  <div key={i} className="flex gap-[3px]">
-                    {row.map((iso) => {
-                      const isFuture = iso > t;
-                      const isPast = iso < t;
-                      const isDone = !!habit.log[iso];
-                      const isMissed = isPast && !isDone;
-
-                      return (
-                        <button
-                          key={iso}
-                          disabled={isFuture}
-                          onClick={() => toggleDay(habit.id, iso)}
-                          title={isFuture ? iso : isDone ? `${iso} — Completed` : isMissed ? `${iso} — Missed (click to fix)` : `${iso} — Today`}
-                          className={cn(
-                            "relative h-7 flex-1 rounded-[5px] transition-all flex items-center justify-center text-[9px] font-semibold",
-                            !isFuture && "hover:scale-y-110 hover:brightness-110",
-                            iso === t && "ring-2 ring-accent ring-offset-1 ring-offset-surface-2",
-                            isMissed ? "border border-danger/30 bg-danger/10 text-danger/70" : "bg-surface-2 text-faint",
-                          )}
-                          style={{ background: isDone ? habit.color : undefined, opacity: isFuture ? 0.3 : 1 }}
-                        >
-                          {isDone ? "✓" : isMissed ? "·" : iso === t ? "•" : ""}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-2 flex justify-between text-[9px] text-faint">
-                <span>{fromISO(weeks[0][0]).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                <span>{fromISO(weeks[weeks.length - 1][6]).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-              </div>
+          <div className="rounded-xl border border-border/60 bg-surface-2/30 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <button onClick={() => shiftMonth(-1)} aria-label="Previous month" className="grid h-8 w-8 place-items-center rounded-lg border border-border text-muted hover:bg-surface-hover"><ChevronLeft className="h-4 w-4" /></button>
+              <div className="text-center"><p className="text-sm font-semibold text-text">{firstDay.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p><button onClick={() => setMonthKey(t.slice(0, 7))} className="text-[10px] font-medium text-accent hover:underline">Jump to today</button></div>
+              <button onClick={() => shiftMonth(1)} aria-label="Next month" className="grid h-8 w-8 place-items-center rounded-lg border border-border text-muted hover:bg-surface-hover"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-semibold uppercase tracking-wide text-faint">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}</div>
+            <div className="mt-1 grid grid-cols-7 gap-1">
+              {calendarDays.map((iso, index) => {
+                if (!iso) return <span key={`empty-${index}`} className="h-9 sm:h-10" />;
+                const isFuture = iso > t;
+                const isDone = !!habit.log[iso];
+                const isMissed = iso < t && !isDone;
+                return <button key={iso} disabled={isFuture} onClick={() => toggleDay(habit.id, iso)} title={isFuture ? `${iso} — Future` : isDone ? `${iso} — Completed (click to toggle)` : isMissed ? `${iso} — Missed (click to complete)` : `${iso} — Today (click to complete)`} className={cn("relative flex h-9 sm:h-10 items-center justify-center rounded-lg text-[11px] font-semibold transition-all", !isFuture && "hover:scale-105", iso === t && "ring-2 ring-accent ring-offset-1 ring-offset-surface-2", isMissed ? "border border-danger/25 bg-danger/10 text-danger/70" : "bg-surface-2 text-muted", isFuture && "cursor-not-allowed opacity-30")} style={isDone ? { background: habit.color, color: "var(--accent-fg)" } : undefined}>{fromISO(iso).getDate()}{isDone && <span className="absolute bottom-1 text-[8px]">✓</span>}</button>;
+              })}
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-faint">
