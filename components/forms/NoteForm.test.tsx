@@ -4,6 +4,7 @@ import "fake-indexeddb/auto";
 import React from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { DataProvider, createMemoryQueryClient } from "@/lib/data/query/provider";
 import type { DataAdapter } from "@/lib/data/types";
 import { type Note, type NoteCategory } from "@/lib/data/domains/notes";
@@ -226,4 +227,46 @@ describe("NoteForm sync rehydration & draft reliability", () => {
     // Attached photos bar should display the photo tag
     expect(screen.getByText("[img-1]")).toBeDefined();
   });
+
+  it("renders section dropdown when active category has sections and saves selected section", async () => {
+    const categoriesWithSections: NoteCategory[] = [
+      { id: "cat-ideas", name: "Ideas", color: "purple", sections: ["Approved", "Rejected"] },
+    ];
+
+    const addNote = vi.fn().mockImplementation(async (payload) => {
+      return { id: "new-note-1", ...payload, updatedAt: Date.now() };
+    });
+    const updateNote = vi.fn().mockResolvedValue(undefined);
+    const deleteNote = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NoteForm
+          open
+          onClose={vi.fn()}
+          defaultTag="Ideas"
+          defaultSection="Approved"
+          data={{
+            categories: categoriesWithSections,
+            addNote,
+            updateNote,
+            deleteNote,
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTitle("Choose Section Tag")).toBeDefined();
+
+    const titleInput = screen.getByPlaceholderText(/Title of note/);
+    fireEvent.change(titleInput, { target: { value: "A new approved idea" } });
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    expect(addNote).toHaveBeenCalled();
+    expect(addNote.mock.calls[0][0].section).toBe("Approved");
+  });
 });
+

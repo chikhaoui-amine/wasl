@@ -55,8 +55,8 @@ import {
 import { cn } from "@/lib/utils";
 
 export interface NoteFormData {
-  categories: readonly { id?: string; name: string; color?: string }[];
-  addNote: (input: { title: string; body: string; tag: string; pinned?: boolean; contentType?: NoteContentType; sourceUrl?: string; author?: string }) => Promise<Note>;
+  categories: readonly { id?: string; name: string; color?: string; sections?: string[] }[];
+  addNote: (input: { title: string; body: string; tag: string; section?: string; pinned?: boolean; contentType?: NoteContentType; sourceUrl?: string; author?: string }) => Promise<Note>;
   updateNote: (id: string, patch: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   edition?: string;
@@ -88,6 +88,7 @@ interface NotePayload {
   title: string;
   body: string;
   tag: string;
+  section?: string;
   contentType: NoteContentType;
   sourceUrl: string;
   author: string;
@@ -98,11 +99,15 @@ export function NoteForm({
   onClose,
   note,
   data,
+  defaultSection,
+  defaultTag,
 }: {
   open: boolean;
   onClose: () => void;
   note?: Note;
   data?: NoteFormData;
+  defaultSection?: string;
+  defaultTag?: string;
 }) {
   const notesData = useNotesData();
   const { categories, addNote, updateNote, deleteNote, edition } = data ?? notesData;
@@ -111,6 +116,7 @@ export function NoteForm({
   const [body, setBody] = useState("");
   const [imageReferences, setImageReferences] = useState<Record<string, string>>({});
   const [tag, setTag] = useState("");
+  const [section, setSection] = useState<string | undefined>(defaultSection);
   const [contentType, setContentType] = useState<NoteContentType>("note");
   const [sourceUrl, setSourceUrl] = useState("");
   const [author, setAuthor] = useState("");
@@ -159,6 +165,7 @@ export function NoteForm({
         title: autoTitle,
         body: payload.body,
         tag: payload.tag || defaultCategoryName,
+        section: payload.section || undefined,
         contentType: payload.contentType,
         sourceUrl: payload.sourceUrl.trim(),
         author: payload.author.trim(),
@@ -171,6 +178,7 @@ export function NoteForm({
           title: payload.title,
           body: payload.body,
           tag: payload.tag,
+          section: payload.section || undefined,
           contentType: payload.contentType,
           sourceUrl: payload.sourceUrl,
           author: payload.author,
@@ -184,6 +192,7 @@ export function NoteForm({
           title: payload.title,
           body: payload.body,
           tag: payload.tag,
+          section: payload.section || undefined,
           contentType: payload.contentType,
           sourceUrl: payload.sourceUrl,
           author: payload.author,
@@ -212,6 +221,7 @@ export function NoteForm({
       setImageReferences(parsed.references);
 
       setTag(note.tag);
+      setSection(note.section);
       setContentType(note.contentType || "note");
       setSourceUrl(note.sourceUrl || "");
       setAuthor(note.author || "");
@@ -220,6 +230,7 @@ export function NoteForm({
         title: note.title,
         body: note.body,
         tag: note.tag,
+        section: note.section,
         contentType: note.contentType || "note",
         sourceUrl: (note.sourceUrl || "").trim(),
         author: (note.author || "").trim(),
@@ -230,7 +241,8 @@ export function NoteForm({
       setTitle("");
       setBody("");
       setImageReferences({});
-      setTag(defaultCategoryName);
+      setTag(defaultTag || defaultCategoryName);
+      setSection(defaultSection);
       setContentType(initialType);
       setSourceUrl("");
       setAuthor("");
@@ -239,7 +251,7 @@ export function NoteForm({
     setActiveTab("source");
     setSaveStatus("saved");
     isInitialRenderRef.current = true;
-  }, [editorSessionKey, note, defaultCategoryName, initialType]);
+  }, [editorSessionKey, note, defaultCategoryName, defaultTag, defaultSection, initialType]);
 
   const getFullComposedBody = () => composeNoteMarkdown(body, imageReferences);
 
@@ -254,6 +266,7 @@ export function NoteForm({
       title,
       body: fullBody,
       tag: tag || defaultCategoryName,
+      section: section || undefined,
       contentType,
       sourceUrl,
       author,
@@ -359,6 +372,7 @@ export function NoteForm({
       title,
       body: fullBody,
       tag: tag || defaultCategoryName,
+      section: section || undefined,
       contentType,
       sourceUrl,
       author,
@@ -387,7 +401,7 @@ export function NoteForm({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [title, body, imageReferences, tag, contentType, sourceUrl, author, defaultCategoryName, debounceDelayMs, open, saveQueue]);
+  }, [title, body, imageReferences, tag, section, contentType, sourceUrl, author, defaultCategoryName, debounceDelayMs, open, saveQueue]);
 
   // Register with global pending save coordinator for safe lifecycle
   useEffect(() => {
@@ -579,7 +593,12 @@ export function NoteForm({
                     if (e.target.value === "__NEW__") {
                       setCreatingCat(true);
                     } else {
-                      setTag(e.target.value);
+                      const nextTag = e.target.value;
+                      setTag(nextTag);
+                      const targetCat = categories.find((c) => c.name.toLowerCase() === nextTag.toLowerCase());
+                      if (!targetCat?.sections?.includes(section || "")) {
+                        setSection(undefined);
+                      }
                     }
                   }}
                   onBlur={flushSave}
@@ -594,6 +613,32 @@ export function NoteForm({
                   <option value="__NEW__" className="bg-surface-1 text-text">+ New Page...</option>
                 </select>
               </div>
+
+              {/* Section Pill Dropdown (when category has custom sections) */}
+              {activeCategory?.sections && activeCategory.sections.length > 0 && (
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface-2 px-2.5 py-1 text-xs font-medium text-text shrink-0"
+                  title="Choose Section Tag"
+                >
+                  <span className="text-[10px] text-faint font-semibold uppercase tracking-wider">Section:</span>
+                  <select
+                    value={section || ""}
+                    onChange={(e) => {
+                      const val = e.target.value || undefined;
+                      setSection(val);
+                      setTimeout(flushSave, 0);
+                    }}
+                    className="bg-transparent font-semibold outline-none cursor-pointer border-none text-xs text-accent truncate"
+                  >
+                    <option value="" className="bg-surface-1 text-text">Inbox / Unsorted</option>
+                    {activeCategory.sections.map((s) => (
+                      <option key={s} value={s} className="bg-surface-1 text-text">
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Content Type Segmented Switcher */}
               <div className="flex items-center rounded-full bg-surface-2 p-0.5 text-xs shrink-0">

@@ -80,6 +80,12 @@ export function NoteListView({
                   {contentType}
                 </span>
 
+                {note.section && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-accent">
+                    {note.section}
+                  </span>
+                )}
+
                 {note.pinned && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
                     <Pin className="h-2.5 w-2.5 fill-current rotate-45" /> Pinned

@@ -53,10 +53,20 @@ function NoteCard({
   note,
   onRead,
   onEdit,
+  availableSections,
+  onSectionChange,
+  isDragging,
+  onDragStart,
+  onDragEnd,
 }: {
   note: Note;
   onRead: () => void;
   onEdit: () => void;
+  availableSections?: string[];
+  onSectionChange?: (section: string | undefined) => void;
+  isDragging?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }) {
   const { togglePin, categories } = useNotesData();
   const category = categories.find((c) => c.name.toLowerCase() === note.tag.toLowerCase());
@@ -66,7 +76,16 @@ function NoteCard({
   const Icon = TYPE_ICONS[contentType] || StickyNote;
 
   return (
-    <article className="card card-hover mb-3 sm:mb-4 block break-inside-avoid p-4 sm:p-5 transition-all group">
+    <article
+      draggable={!!onDragStart}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "card card-hover mb-3 sm:mb-4 block break-inside-avoid p-4 sm:p-5 transition-all group",
+        onDragStart && "cursor-grab active:cursor-grabbing select-none",
+        isDragging && "opacity-30 scale-[0.98] border-dashed border-accent",
+      )}
+    >
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span
@@ -82,6 +101,37 @@ function NoteCard({
             <Icon className="h-3 w-3" />
             {TYPE_LABELS[contentType]}
           </span>
+
+          {/* Quick-Switch Section Pill Dropdown */}
+          {availableSections && availableSections.length > 0 && (
+            <div
+              className="relative inline-flex items-center rounded-pill border border-border/80 bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-text hover:border-accent transition-colors"
+              title="Click to switch section"
+            >
+              <span className="text-[10px] text-faint mr-1 font-semibold">§</span>
+              <span className={cn("truncate max-w-[85px] text-[11px] font-semibold", note.section ? "text-accent" : "text-muted")}>
+                {note.section || "Unsorted"}
+              </span>
+              <span className="ml-1 text-[8px] text-faint">▼</span>
+              <select
+                value={note.section || ""}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onSectionChange?.(e.target.value || undefined);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Change section for ${note.title}`}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs"
+              >
+                <option value="">Inbox / Unsorted</option>
+                {availableSections.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-0.5">
@@ -143,9 +193,52 @@ function NoteCard({
 }
 
 export default function NotesPage() {
-  const { notes, categories, addNote, addCategory, updateCategory, updateGraphPosition, graphPositions } = useNotesData();
+  const {
+    notes,
+    categories,
+    addNote,
+    updateNote,
+    addCategory,
+    updateCategory,
+    updateGraphPosition,
+    graphPositions,
+  } = useNotesData();
   const visibleCategories = getEffectiveCategories(notes, categories);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+
+  const [newNoteSection, setNewNoteSection] = useState<string | undefined>(undefined);
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null);
+
+  const currentCategory =
+    selectedCategory !== "All"
+      ? categories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase())
+      : undefined;
+  const categorySections = currentCategory?.sections ?? [];
+  const hasSections = selectedCategory !== "All" && categorySections.length > 0;
+
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    setDraggedNoteId(noteId);
+    e.dataTransfer.setData("text/plain", noteId);
+    e.dataTransfer.setData("application/x-wasl-note-id", noteId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragEnd = () => {
+    setDraggedNoteId(null);
+    setDragOverSection(null);
+  };
+
+  const handleDropOnSection = async (e: React.DragEvent, targetSection: string | undefined) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const noteId = e.dataTransfer.getData("application/x-wasl-note-id") || draggedNoteId;
+    if (noteId) {
+      await updateNote(noteId, { section: targetSection });
+    }
+    setDraggedNoteId(null);
+    setDragOverSection(null);
+  };
 
   const handleUpdateCategoryLinks = async (
     idOrName: string,
@@ -341,7 +434,10 @@ export default function NotesPage() {
             </button>
 
             <button
-              onClick={() => setCreatingNote(true)}
+              onClick={() => {
+                setNewNoteSection(undefined);
+                setCreatingNote(true);
+              }}
               className="btn-hero flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-[13px] font-semibold"
             >
               <Plus className="h-4 w-4" /> New Item
@@ -437,14 +533,166 @@ export default function NotesPage() {
                     <>No matching items found for this filter.</>
                   )}
                 </Card>
+              ) : hasSections ? (
+                <div className="space-y-6">
+                  {/* Top Section: Inbox / Unsorted */}
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-border" />
+                          Inbox / Unsorted
+                        </span>
+                        <span className="inline-flex items-center justify-center rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-faint">
+                          {sorted.filter((n) => !n.section || !categorySections.includes(n.section)).length}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewNoteSection(undefined);
+                          setCreatingNote(true);
+                        }}
+                        className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add note</span>
+                      </button>
+                    </div>
+
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        setDragOverSection("__UNSORTED__");
+                      }}
+                      onDragLeave={() => setDragOverSection((curr) => (curr === "__UNSORTED__" ? null : curr))}
+                      onDrop={(e) => handleDropOnSection(e, undefined)}
+                      className={cn(
+                        "min-h-[72px] rounded-2xl p-3 sm:p-4 transition-all",
+                        dragOverSection === "__UNSORTED__"
+                          ? "ring-2 ring-accent border border-accent bg-accent/5"
+                          : "border border-dashed border-border/60 bg-surface-1/30",
+                      )}
+                    >
+                      {sorted.filter((n) => !n.section || !categorySections.includes(n.section)).length === 0 ? (
+                        <div className="py-4 text-center text-xs text-faint">
+                          {dragOverSection === "__UNSORTED__"
+                            ? "Drop here to move to Inbox"
+                            : "No unsorted notes in this page."}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                          {sorted
+                            .filter((n) => !n.section || !categorySections.includes(n.section))
+                            .map((n) => (
+                              <NoteCard
+                                key={n.id}
+                                note={n}
+                                availableSections={categorySections}
+                                onSectionChange={(sec) => updateNote(n.id, { section: sec })}
+                                onRead={() => setReadingNote(n)}
+                                onEdit={() => setEditing(n)}
+                                isDragging={draggedNoteId === n.id}
+                                onDragStart={(e) => handleDragStart(e, n.id)}
+                                onDragEnd={handleDragEnd}
+                              />
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Configured Sections in Order */}
+                  {categorySections.map((secName) => {
+                    const secNotes = sorted.filter((n) => n.section === secName);
+                    return (
+                      <section key={secName} className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
+                              style={{ color: currentCategory?.color || "var(--accent)" }}
+                            >
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{ background: currentCategory?.color || "var(--accent)" }}
+                              />
+                              {secName}
+                            </span>
+                            <span className="inline-flex items-center justify-center rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-faint">
+                              {secNotes.length}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewNoteSection(secName);
+                              setCreatingNote(true);
+                            }}
+                            className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Add note</span>
+                          </button>
+                        </div>
+
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            setDragOverSection(secName);
+                          }}
+                          onDragLeave={() => setDragOverSection((curr) => (curr === secName ? null : curr))}
+                          onDrop={(e) => handleDropOnSection(e, secName)}
+                          className={cn(
+                            "min-h-[72px] rounded-2xl p-3 sm:p-4 transition-all",
+                            dragOverSection === secName
+                              ? "ring-2 ring-accent border border-accent bg-accent/5"
+                              : "border border-dashed border-border/60 bg-surface-1/30",
+                          )}
+                        >
+                          {secNotes.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-faint">
+                              {dragOverSection === secName
+                                ? `Drop here to move to ${secName}`
+                                : `No notes in "${secName}" yet. Drag notes here or use the card status pill.`}
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                              {secNotes.map((n) => (
+                                <NoteCard
+                                  key={n.id}
+                                  note={n}
+                                  availableSections={categorySections}
+                                  onSectionChange={(sec) => updateNote(n.id, { section: sec })}
+                                  onRead={() => setReadingNote(n)}
+                                  onEdit={() => setEditing(n)}
+                                  isDragging={draggedNoteId === n.id}
+                                  onDragStart={(e) => handleDragStart(e, n.id)}
+                                  onDragEnd={handleDragEnd}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
                   {sorted.map((n) => (
                     <NoteCard
                       key={n.id}
                       note={n}
+                      availableSections={categorySections}
+                      onSectionChange={(sec) => updateNote(n.id, { section: sec })}
                       onRead={() => setReadingNote(n)}
                       onEdit={() => setEditing(n)}
+                      isDragging={draggedNoteId === n.id}
+                      onDragStart={(e) => handleDragStart(e, n.id)}
+                      onDragEnd={handleDragEnd}
                     />
                   ))}
                 </div>
@@ -486,7 +734,15 @@ export default function NotesPage() {
       />
 
       {/* Edit Mode Modal */}
-      <NoteForm open={creatingNote} onClose={() => setCreatingNote(false)} />
+      <NoteForm
+        open={creatingNote}
+        onClose={() => {
+          setCreatingNote(false);
+          setNewNoteSection(undefined);
+        }}
+        defaultTag={selectedCategory !== "All" ? selectedCategory : undefined}
+        defaultSection={newNoteSection}
+      />
       <NoteForm open={!!editing} onClose={() => setEditing(undefined)} note={editing} />
       <CategoryForm open={creatingCategory} onClose={() => setCreatingCategory(false)} />
       <CategoryForm open={!!editingCategory} onClose={() => setEditingCategory(undefined)} category={editingCategory} />

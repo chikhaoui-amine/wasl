@@ -127,6 +127,13 @@ export function NoteDetail({ note, onClose, onEdit, data }: NoteDetailProps) {
               <Icon className="h-3.5 w-3.5" />
               {TYPE_LABELS[contentType]}
             </span>
+
+            {note.section && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-surface-2 px-2.5 py-1 text-xs font-medium text-accent shrink-0">
+                <span className="text-[10px] text-faint uppercase tracking-wider font-semibold">§</span>
+                <span>{note.section}</span>
+              </span>
+            )}
           </div>
 
           {/* Controls: Copy, Pin, Edit, Delete, Close */}

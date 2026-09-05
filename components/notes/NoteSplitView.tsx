@@ -83,7 +83,7 @@ export function NoteSplitView({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSavedPayloadRef = useRef<string>("");
 
-  const debounceDelayMs = 250;
+  const debounceDelayMs = (edition as string) === "cloud" ? 800 : 250;
 
   // Initialize Coalescing Save Queue once via useState
   const [saveQueue] = useState(() => new CoalescingSaveQueue<InlineDraftPayload>());
@@ -298,6 +298,12 @@ export function NoteSplitView({
                     {note.tag}
                   </span>
 
+                  {note.section && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold rounded-full px-1.5 py-0.5 border border-border/80 bg-surface-2 text-accent truncate max-w-[80px]">
+                      {note.section}
+                    </span>
+                  )}
+
                   <div className="flex items-center gap-1">
                     {note.pinned && <Pin className="h-3 w-3 text-accent fill-current rotate-45" />}
                     <span className="text-[10px] text-faint">{relTime(note.updatedAt)}</span>
@@ -344,6 +350,13 @@ export function NoteSplitView({
                   <Icon className="h-3.5 w-3.5" />
                   {TYPE_LABELS[contentType]}
                 </span>
+
+                {selectedNote.section && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-surface-2 px-2.5 py-1 text-xs font-medium text-accent">
+                    <span className="text-[10px] text-faint font-semibold">§</span>
+                    <span>{selectedNote.section}</span>
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5">
