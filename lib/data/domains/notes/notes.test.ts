@@ -36,6 +36,7 @@ import {
   togglePinOperation,
   deleteNoteOperation,
   addCategoryOperation,
+  updateCategoryOperation,
   deleteCategoryOperation,
   relTime,
   DEFAULT_CATEGORIES,
@@ -112,6 +113,23 @@ describe("Notes Domain — Pure Operations", () => {
     expect(afterDeleteCat.categories.find((c) => c.id === "cat-books")).toBeUndefined();
     expect(afterDeleteCat.notes[0].tag).toBe("Personal");
     expect(afterDeleteCat.notes[0].updatedAt).toBe(2000);
+  });
+
+  it("updates note section and category sections cleanly", () => {
+    const initial: NotesPersistedState = {
+      notes: [{ id: "note-1", title: "Idea 1", body: "text", tag: "Ideas", pinned: false, updatedAt: 1000 }],
+      categories: [{ id: "cat-ideas", name: "Ideas", color: "#37c9b7" }],
+    };
+
+    const withSections = updateCategoryOperation(initial, "cat-ideas", { sections: ["Approved", "Rejected"] });
+    expect(withSections.categories[0].sections).toEqual(["Approved", "Rejected"]);
+
+    const withNoteSection = updateNoteOperation(withSections, "note-1", { section: "Approved" }, 2000);
+    expect(withNoteSection.notes[0].section).toBe("Approved");
+    expect(withNoteSection.notes[0].updatedAt).toBe(2000);
+
+    const clearedSection = updateNoteOperation(withNoteSection, "note-1", { section: undefined }, 3000);
+    expect(clearedSection.notes[0].section).toBeUndefined();
   });
 
   it("handles large note content smoothly without truncation", () => {

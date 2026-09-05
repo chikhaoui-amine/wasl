@@ -134,13 +134,14 @@ export function useNotesData() {
   );
 
   const addCategory = useCallback(
-    async (input: { name: string; color: string; icon?: string; linkedCategoryIds?: string[] }): Promise<NoteCategory> => {
+    async (input: { name: string; color: string; icon?: string; linkedCategoryIds?: string[]; sections?: string[] }): Promise<NoteCategory> => {
       const cat: NoteCategory = {
         id: `cat-${crypto.randomUUID()}`,
         name: input.name.trim(),
         color: input.color || "var(--accent)",
         icon: input.icon,
         linkedCategoryIds: input.linkedCategoryIds,
+        sections: input.sections,
       };
       await mutation.mutateAsync((current) => addCategoryOperation(current, cat));
       return cat;
@@ -151,11 +152,18 @@ export function useNotesData() {
   const updateCategory = useCallback(
     async (
       id: string,
-      patch: { name?: string; color?: string; icon?: string; linkedCategoryIds?: string[] },
+      patch: { name?: string; color?: string; icon?: string; linkedCategoryIds?: string[]; sections?: string[] },
     ): Promise<void> => {
       await mutation.mutateAsync((current) => updateCategoryOperation(current, id, patch));
     },
     [mutation],
+  );
+
+  const setNoteSection = useCallback(
+    async (id: string, section?: string): Promise<void> => {
+      await updateNote(id, { section });
+    },
+    [updateNote],
   );
 
   const deleteCategory = useCallback(
@@ -182,6 +190,7 @@ export function useNotesData() {
     edition,
     addNote,
     updateNote,
+    setNoteSection,
     togglePin,
     deleteNote,
     addCategory,
