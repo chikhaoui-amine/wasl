@@ -154,6 +154,7 @@ export function NotesGraphView({
   }, []);
 
   const hasAutoCenteredRef = useRef(false);
+  const previousGraphSignatureRef = useRef<string | null>(null);
 
   // Fit and center camera on all nodes
   const resetCamera = useCallback(() => {
@@ -216,6 +217,19 @@ export function NotesGraphView({
       return () => clearTimeout(timer);
     }
   }, [notes.length, resetCamera]);
+
+  // Re-fit only when nodes are added or removed. Editing content or moving a
+  // node must not steal the user's camera position, but newly-created notes
+  // can otherwise land outside the current viewport.
+  useEffect(() => {
+    const signature = notes.map((note) => `note-${note.id}`).sort().join("|") + "::" +
+      effectiveCategories.map((category) => `cat-${category.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-")}`).sort().join("|");
+    const previous = previousGraphSignatureRef.current;
+    previousGraphSignatureRef.current = signature;
+    if (!previous || previous === signature) return;
+    const timer = setTimeout(() => resetCamera(), 60);
+    return () => clearTimeout(timer);
+  }, [notes, effectiveCategories, resetCamera]);
 
   const handleZoom = useCallback((delta: number) => {
     const nextScale = Math.min(2.5, Math.max(0.15, cameraRef.current.scale + delta));
