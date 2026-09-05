@@ -142,6 +142,7 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
       contentType: z.enum(["note", "read", "listen", "idea"]).optional().describe("Note content type"),
       sourceUrl: z.string().optional().describe("Source URL if referencing an external article or video"),
       author: z.string().optional().describe("Author or speaker"),
+      section: z.string().optional().describe("Section / status tag (e.g. 'Approved', 'Rejected')"),
       idempotencyKey: z.string().optional().describe("Idempotency key"),
     }),
   },
@@ -154,6 +155,7 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
       body: z.string().optional().describe("New markdown body"),
       tag: z.string().optional().describe("New tag/category"),
       pinned: z.boolean().optional().describe("Pin note to top"),
+      section: z.string().optional().describe("New section / status tag, or empty string to clear"),
     }),
   },
   {
@@ -189,6 +191,7 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
       name: z.string().min(1),
       color: z.string().optional(),
       icon: z.string().optional(),
+      sections: z.array(z.string()).optional().describe("Dividing sections / status tags for this page"),
     }),
   },
   {
@@ -199,6 +202,7 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
       name: z.string().optional(),
       color: z.string().optional(),
       icon: z.string().optional(),
+      sections: z.array(z.string()).optional().describe("Updated sections list for this page"),
     }),
   },
   {
