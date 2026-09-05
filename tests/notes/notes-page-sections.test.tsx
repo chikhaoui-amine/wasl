@@ -106,7 +106,7 @@ describe("NotesPage Sections & Drag-and-Drop", () => {
           state: currentState,
           updatedAt: "2026-09-05",
         }) as any,
-      mutateStore,
+      mutateStore: mutateStore as any,
       getAllStores: () => Promise.resolve([]),
       subscribe: () => () => {},
     };
@@ -143,7 +143,7 @@ describe("NotesPage Sections & Drag-and-Drop", () => {
           state: currentState,
           updatedAt: "2026-09-05",
         }) as any,
-      mutateStore,
+      mutateStore: mutateStore as any,
       getAllStores: () => Promise.resolve([]),
       subscribe: () => () => {},
     };
@@ -180,7 +180,7 @@ describe("NotesPage Sections & Drag-and-Drop", () => {
           state: currentState,
           updatedAt: "2026-09-05",
         }) as any,
-      mutateStore,
+      mutateStore: mutateStore as any,
       getAllStores: () => Promise.resolve([]),
       subscribe: () => () => {},
     };
