@@ -255,7 +255,7 @@ export class LocalMcpExecutor {
       const raw: Record<string, unknown> = rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
         ? { ...(rawResult as Record<string, unknown>) }
         : { value: rawResult };
-      const entity = ["task", "note", "goal", "habit", "block", "entry", "workout", "account", "transaction", "category", "recurringTask"]
+      const entity = ["task", "note", "goal", "habit", "block", "entry", "workout", "account", "transaction"]
         .map((key) => raw[key])
         .find((value) => value && typeof value === "object" && !Array.isArray(value)) as Record<string, unknown> | undefined;
       const id = typeof raw.id === "string" ? raw.id : typeof entity?.id === "string" ? entity.id : null;
@@ -652,15 +652,12 @@ export class LocalMcpExecutor {
           deletedId = target.id;
           const categories = (current.categories ?? []).filter((item) => item.id !== target.id);
           const fallbackTag = categories[0]?.name ?? "Personal";
-          return {
-            ...current,
-            categories,
-            notes: (current.notes ?? []).map((note) => note.tag.toLocaleLowerCase() === target.name.toLocaleLowerCase()
-              ? { ...note, tag: fallbackTag, updatedAt: Date.now() }
-              : note),
-          };
+          const notes = (current.notes ?? []).map((n) =>
+            n.tag.toLowerCase() === target.name.toLowerCase() ? { ...n, tag: fallbackTag } : n,
+          );
+          return { ...current, categories, notes };
         });
-        return { success: true, id: deletedId };
+        return { success: true, deletedId };
       }
 
       // ---------------------------------------------------------------------
@@ -796,7 +793,6 @@ export class LocalMcpExecutor {
           id: habit.id,
           title: habit.name,
           targetPerWeek: habit.targetPerWeek,
-          category: habit.category ?? null,
           color: habit.color,
           icon: habit.icon,
           completedCount: Object.values(habit.log).filter(Boolean).length,
@@ -812,7 +808,6 @@ export class LocalMcpExecutor {
             id: habit.id,
             title: habit.name,
             targetPerWeek: habit.targetPerWeek,
-            category: habit.category ?? null,
             color: habit.color,
             icon: habit.icon,
             completedCount: Object.values(habit.log).filter(Boolean).length,
@@ -834,7 +829,6 @@ export class LocalMcpExecutor {
         const newHabit: Habit = normalizeHabit({
           id: crypto.randomUUID(),
           name: String(args.title ?? "New Habit"),
-          category: typeof args.category === "string" ? args.category : undefined,
           icon: typeof args.icon === "string" ? args.icon : "activity",
           targetPerWeek: Number(args.targetPerWeek ?? 7),
           color: typeof args.color === "string" ? args.color : "#37c9b7",
@@ -847,31 +841,7 @@ export class LocalMcpExecutor {
           habits: [...(current.habits ?? []), newHabit],
         }));
 
-        return { success: true, habit: { ...newHabit, title: newHabit.name } };
-      }
-
-      case "update_habit": {
-        const id = String(args.id);
-        let updatedHabit: Habit | null = null;
-        await this.mutateStore("lifeos-habits", (current) => ({
-          ...current,
-          habits: (current.habits ?? []).map((raw) => {
-            const habit = normalizeHabit(raw);
-            if (habit.id !== id) return habit;
-            updatedHabit = normalizeHabit({
-              ...habit,
-              ...(typeof args.title === "string" ? { name: args.title } : {}),
-              ...(typeof args.category === "string" ? { category: args.category || undefined } : {}),
-              ...(typeof args.icon === "string" ? { icon: args.icon } : {}),
-              ...(typeof args.targetPerWeek === "number" ? { targetPerWeek: args.targetPerWeek } : {}),
-              ...(typeof args.color === "string" ? { color: args.color } : {}),
-            });
-            return updatedHabit;
-          }),
-        }));
-        const resultHabit = updatedHabit as Habit | null;
-        if (!resultHabit) throw new Error(`Habit '${id}' not found.`);
-        return { success: true, habit: { ...resultHabit, title: resultHabit.name } };
+        return { success: true, habit: newHabit };
       }
 
       case "set_habit_day_completed": {
@@ -989,11 +959,7 @@ export class LocalMcpExecutor {
           blocks: [...(current.blocks ?? []), newBlock],
         }));
 
-        return { success: true, block: {
-          ...newBlock,
-          startTime: decimalHourToTime(newBlock.start),
-          endTime: decimalHourToTime(newBlock.end),
-        } };
+        return { success: true, block: newBlock };
       }
 
       case "delete_calendar_block": {
@@ -1195,13 +1161,7 @@ export class LocalMcpExecutor {
           transactions: [newTx, ...(current.transactions ?? [])],
         }));
 
-        return { success: true, transaction: {
-          ...newTx,
-          title: newTx.label,
-          category: newTx.tag,
-          accountId: newTx.accountId ?? null,
-          transferAccountId: newTx.transferAccountId ?? null,
-        } };
+        return { success: true, transaction: newTx };
       }
 
       case "transfer_money": {
@@ -1240,7 +1200,7 @@ export class LocalMcpExecutor {
           date: workout.date,
           durationMinutes: workout.minutes ?? null,
           notes: workout.note ?? null,
-          exerciseCount: workout.detailedExercises?.length ?? workout.exercises?.length ?? 0,
+          exerciseCount: workout.exercises?.length ?? 0,
         })), args);
       }
 
@@ -1254,14 +1214,14 @@ export class LocalMcpExecutor {
           date: workout.date,
           durationMinutes: workout.minutes ?? null,
           notes: workout.note ?? null,
-          exerciseCount: workout.detailedExercises?.length ?? workout.exercises?.length ?? 0,
+          exerciseCount: workout.exercises?.length ?? 0,
         })), args);
       }
 
       case "workouts_get": {
         const doc = await this.adapter.getStore("lifeos-health");
         const workout = exactById(doc?.state.workouts ?? [], args.id, "Workout");
-        return { item: { ...workout, title: workout.sport, durationMinutes: workout.minutes ?? null, notes: workout.note ?? null, exerciseCount: workout.detailedExercises?.length ?? workout.exercises?.length ?? 0 } };
+        return { item: { ...workout, title: workout.sport, durationMinutes: workout.minutes ?? null } };
       }
 
       case "log_workout": {
@@ -1279,22 +1239,7 @@ export class LocalMcpExecutor {
           workouts: [newWorkout, ...(current.workouts ?? [])],
         }));
 
-        return { success: true, workout: { ...newWorkout, title: newWorkout.sport, durationMinutes: newWorkout.minutes, notes: newWorkout.note ?? null, exerciseCount: 0 } };
-      }
-
-      case "update_health_day": {
-        const date = typeof args.date === "string" ? args.date : todayISO();
-        let day: Record<string, unknown> = {};
-        await this.mutateStore("lifeos-health", (current) => {
-          day = { ...(current.days?.[date] ?? {}) };
-          for (const [key, value] of Object.entries(args)) {
-            if (key === "date") continue;
-            if (value === null || ((key === "sleepNote" || key === "sleepQuality") && value === "")) delete day[key];
-            else if (value !== undefined) day[key] = value;
-          }
-          return { ...current, days: { ...(current.days ?? {}), [date]: day as never } };
-        });
-        return { success: true, date, day };
+        return { success: true, workout: newWorkout };
       }
 
       // ---------------------------------------------------------------------
@@ -1317,62 +1262,6 @@ export class LocalMcpExecutor {
       case "recurring_get": {
         const doc = await this.adapter.getStore("lifeos-recurring");
         return { item: exactById(doc?.state.recurring ?? [], args.id, "Recurring task") };
-      }
-
-      case "add_recurring_task": {
-        const frequency = args.frequency as "daily" | "weekly" | "monthly" | "custom";
-        const rule = {
-          freq: frequency,
-          ...(frequency === "weekly" && Array.isArray(args.weekDays) ? { weekDays: args.weekDays as number[] } : {}),
-          ...(frequency === "monthly" && typeof args.monthDay === "number" ? { monthDay: args.monthDay } : {}),
-          ...(frequency === "custom" && typeof args.intervalDays === "number" ? { intervalDays: args.intervalDays } : {}),
-        };
-        const recurringTask = {
-          id: crypto.randomUUID(),
-          title: String(args.title).trim(),
-          rule,
-          startDate: typeof args.startDate === "string" ? args.startDate : todayISO(),
-          endDate: typeof args.endDate === "string" ? args.endDate : undefined,
-          completions: {},
-          createdAt: todayISO(),
-        };
-        await this.mutateStore("lifeos-recurring", (current) => ({ ...current, recurring: [recurringTask, ...(current.recurring ?? [])] }));
-        return { success: true, recurringTask };
-      }
-
-      case "update_recurring_task": {
-        let recurringTask: Record<string, unknown> | null = null;
-        await this.mutateStore("lifeos-recurring", (current) => ({
-          ...current,
-          recurring: (current.recurring ?? []).map((item) => {
-            if (item.id !== String(args.id)) return item;
-            const freq = (typeof args.frequency === "string" ? args.frequency : item.rule.freq) as "daily" | "weekly" | "monthly" | "custom";
-            const rule = {
-              ...item.rule,
-              freq,
-              ...(Array.isArray(args.weekDays) ? { weekDays: args.weekDays as number[] } : {}),
-              ...(typeof args.monthDay === "number" ? { monthDay: args.monthDay } : {}),
-              ...(typeof args.intervalDays === "number" ? { intervalDays: args.intervalDays } : {}),
-            };
-            if (freq === "daily") {
-              delete rule.weekDays; delete rule.monthDay; delete rule.intervalDays;
-            } else if (freq === "weekly") {
-              delete rule.monthDay; delete rule.intervalDays;
-            } else if (freq === "monthly") {
-              delete rule.weekDays; delete rule.intervalDays;
-            }
-            recurringTask = {
-              ...item,
-              ...(typeof args.title === "string" ? { title: args.title.trim() } : {}),
-              ...(typeof args.startDate === "string" ? { startDate: args.startDate } : {}),
-              ...(typeof args.endDate === "string" ? { endDate: args.endDate } : {}),
-              rule,
-            };
-            return recurringTask as unknown as typeof item;
-          }),
-        }));
-        if (!recurringTask) throw new Error(`Recurring task '${String(args.id)}' not found.`);
-        return { success: true, recurringTask };
       }
 
       case "topics_list": {
@@ -1413,59 +1302,6 @@ export class LocalMcpExecutor {
         const doc = await this.adapter.getStore("lifeos-topics");
         const topic = exactById(doc?.state.topics ?? [], args.id, "Topic");
         return { item: { ...topic, title: topic.name } };
-      }
-
-      case "add_topic_note": {
-        const now = Date.now();
-        const note = { id: crypto.randomUUID(), title: typeof args.title === "string" ? args.title.trim() : "", text: String(args.text).trim(), createdAt: now, updatedAt: now };
-        let found = false;
-        await this.mutateStore("lifeos-topics", (current) => ({
-          ...current,
-          topics: (current.topics ?? []).map((topic) => {
-            if (topic.id !== String(args.topicId)) return topic;
-            found = true;
-            return { ...topic, notes: [note, ...(topic.notes ?? [])], touchedAt: now };
-          }),
-        }));
-        if (!found) throw new Error(`Topic '${String(args.topicId)}' not found.`);
-        return { success: true, note };
-      }
-
-      case "update_topic_note": {
-        const now = Date.now();
-        let note: Record<string, unknown> | null = null;
-        await this.mutateStore("lifeos-topics", (current) => ({
-          ...current,
-          topics: (current.topics ?? []).map((topic) => {
-            if (topic.id !== String(args.topicId)) return topic;
-            const notes = (topic.notes ?? []).map((item) => {
-              if (item.id !== String(args.noteId)) return item;
-              note = { ...item, ...(typeof args.title === "string" ? { title: args.title.trim() } : {}), ...(typeof args.text === "string" ? { text: args.text } : {}), updatedAt: now };
-              return note as unknown as typeof item;
-            });
-            return { ...topic, notes, touchedAt: now };
-          }),
-        }));
-        if (!note) throw new Error("Topic or note not found.");
-        return { success: true, note };
-      }
-
-      case "delete_topic_note": {
-        let found = false;
-        const now = Date.now();
-        await this.mutateStore("lifeos-topics", (current) => ({
-          ...current,
-          topics: (current.topics ?? []).map((topic) => {
-            if (topic.id !== String(args.topicId)) return topic;
-            const notes = (topic.notes ?? []).filter((item) => {
-              if (item.id === String(args.noteId)) found = true;
-              return item.id !== String(args.noteId);
-            });
-            return { ...topic, notes, touchedAt: now };
-          }),
-        }));
-        if (!found) throw new Error("Topic or note not found.");
-        return { success: true, noteId: String(args.noteId) };
       }
 
       // ---------------------------------------------------------------------

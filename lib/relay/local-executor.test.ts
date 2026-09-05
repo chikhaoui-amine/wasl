@@ -172,30 +172,38 @@ describe("LocalMcpExecutor", () => {
       readWriteProfile,
     );
     expect(addCat.ok).toBe(true);
-    const catId = (addCat.result as any).category.id;
+    if (!addCat.ok) return;
+    const catResult = addCat.result as { category: { id: string } };
+    const catId = catResult.category.id;
 
     const listCats = await executor.execute(
       { toolName: "note_categories_list", args: {} },
       readWriteProfile,
     );
     expect(listCats.ok).toBe(true);
-    const foundCat = (listCats.result as any).items.find((c: any) => c.id === catId);
-    expect(foundCat.sections).toEqual(["Approved", "Rejected"]);
+    if (!listCats.ok) return;
+    const listResult = listCats.result as { items: Array<{ id: string; sections?: string[] }> };
+    const foundCat = listResult.items.find((c) => c.id === catId);
+    expect(foundCat?.sections).toEqual(["Approved", "Rejected"]);
 
     const created = await executor.execute(
       { toolName: "notes_create", args: { title: "Great idea", tag: "Ideas", section: "Approved" } },
       readWriteProfile,
     );
     expect(created.ok).toBe(true);
-    const noteId = (created.result as any).note.id;
-    expect((created.result as any).note.section).toBe("Approved");
+    if (!created.ok) return;
+    const createResult = created.result as { note: { id: string; section?: string } };
+    const noteId = createResult.note.id;
+    expect(createResult.note.section).toBe("Approved");
 
     const updated = await executor.execute(
       { toolName: "notes_update", args: { id: noteId, section: "Rejected" } },
       readWriteProfile,
     );
     expect(updated.ok).toBe(true);
-    expect((updated.result as any).note.section).toBe("Rejected");
+    if (!updated.ok) return;
+    const updateResult = updated.result as { note: { id: string; section?: string } };
+    expect(updateResult.note.section).toBe("Rejected");
   });
 
   // -------------------------------------------------------------------------

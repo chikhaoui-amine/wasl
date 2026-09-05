@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal, Field, FormFooter, inputCls } from "@/components/ui/Modal";
 import { useNotesData, type NoteCategory } from "@/lib/data/domains/notes";
+import { Tag, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
 
 const PRESET_COLORS = [
   "#37c9b7", // Teal/Accent
@@ -36,14 +37,40 @@ function CategoryFormInner({
   const { addCategory, updateCategory, deleteCategory } = useNotesData();
   const [name, setName] = useState(category?.name ?? "");
   const [color, setColor] = useState(category?.color ?? PRESET_COLORS[0]);
+  const [sections, setSections] = useState<string[]>(category?.sections ?? []);
+  const [newSection, setNewSection] = useState("");
+
+  const handleAddSection = () => {
+    const trimmed = newSection.trim();
+    if (!trimmed) return;
+    if (sections.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+      setNewSection("");
+      return;
+    }
+    setSections([...sections, trimmed]);
+    setNewSection("");
+  };
+
+  const handleRemoveSection = (idx: number) => {
+    setSections(sections.filter((_, i) => i !== idx));
+  };
+
+  const handleMoveSection = (idx: number, direction: "up" | "down") => {
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= sections.length) return;
+    const next = [...sections];
+    const [moved] = next.splice(idx, 1);
+    next.splice(targetIdx, 0, moved);
+    setSections(next);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     if (category) {
-      await updateCategory(category.id, { name: name.trim(), color });
+      await updateCategory(category.id, { name: name.trim(), color, sections });
     } else {
-      await addCategory({ name: name.trim(), color });
+      await addCategory({ name: name.trim(), color, sections });
     }
     onClose();
   };
@@ -74,6 +101,83 @@ function CategoryFormInner({
                 style={{ background: c }}
               />
             ))}
+          </div>
+        </Field>
+
+        <Field label="Page Sections / Dividing Tags">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                className={inputCls}
+                value={newSection}
+                onChange={(e) => setNewSection(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSection();
+                  }
+                }}
+                placeholder="e.g. Approved, Rejected, In Review..."
+              />
+              <button
+                type="button"
+                onClick={handleAddSection}
+                disabled={!newSection.trim()}
+                className="flex items-center gap-1 rounded-lg bg-surface-2 border border-border px-3 py-2 text-xs font-semibold text-text hover:bg-surface-hover hover:border-accent disabled:opacity-40 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add</span>
+              </button>
+            </div>
+
+            {sections.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {sections.map((sec, idx) => (
+                  <div
+                    key={sec}
+                    className="flex items-center gap-1 rounded-full border border-border bg-surface-1 pl-2.5 pr-1.5 py-1 text-xs font-medium text-text shadow-xs"
+                  >
+                    <Tag className="h-3 w-3 text-accent" />
+                    <span>{sec}</span>
+                    <div className="flex items-center gap-0.5 ml-1 border-l border-border/50 pl-1">
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMoveSection(idx, "up")}
+                          title="Move up"
+                          className="text-faint hover:text-text p-0.5"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                      )}
+                      {idx < sections.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMoveSection(idx, "down")}
+                          title="Move down"
+                          className="text-faint hover:text-text p-0.5"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSection(idx)}
+                        title="Remove section"
+                        className="text-faint hover:text-danger p-0.5 ml-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-faint">
+                Optional: Add tags (like &ldquo;Approved&rdquo; / &ldquo;Rejected&rdquo;) to divide notes on this page into vertical sections.
+              </p>
+            )}
           </div>
         </Field>
 
