@@ -31,6 +31,7 @@ import { isRtlText } from "@/components/ui/MarkdownRenderer";
 import { Card } from "@/components/ui/primitives";
 import { Hydrate } from "@/lib/hydration";
 import { cn } from "@/lib/utils";
+import { getEffectiveCategories } from "@/lib/notes-graph";
 
 type ViewMode = "grid" | "split" | "list";
 
@@ -143,6 +144,7 @@ function NoteCard({
 
 export default function NotesPage() {
   const { notes, categories, addNote, addCategory, updateCategory, updateGraphPosition, graphPositions } = useNotesData();
+  const visibleCategories = getEffectiveCategories(notes, categories);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const handleUpdateCategoryLinks = async (
@@ -371,8 +373,9 @@ export default function NotesPage() {
               All Pages
             </button>
 
-            {categories.map((cat) => {
+            {visibleCategories.map((cat) => {
               const isSelected = selectedCategory === cat.name;
+              const isSavedCategory = categories.some((saved) => saved.id === cat.id);
               return (
                 <div
                   key={cat.id}
@@ -394,7 +397,7 @@ export default function NotesPage() {
                     <span>{cat.name}</span>
                   </button>
 
-                  <button
+                  {isSavedCategory && <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingCategory(cat);
@@ -403,7 +406,7 @@ export default function NotesPage() {
                     className="ml-0.5 grid h-4 w-4 place-items-center rounded-full text-faint opacity-60 transition-opacity hover:opacity-100 hover:bg-surface-2"
                   >
                     <Pencil className="h-2.5 w-2.5" />
-                  </button>
+                  </button>}
                 </div>
               );
             })}
