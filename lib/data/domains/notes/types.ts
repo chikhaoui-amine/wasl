@@ -8,6 +8,7 @@ export interface NoteCategory {
   color: string;
   icon?: string;
   linkedCategoryIds?: string[];
+  sections?: string[]; // e.g. ["Approved", "Rejected"]
 }
 
 export interface Note {
@@ -20,6 +21,7 @@ export interface Note {
   contentType?: NoteContentType;
   sourceUrl?: string;
   author?: string;
+  section?: string; // Optional custom section/tag within the category (e.g., "Approved")
 }
 
 export interface NoteInput {
@@ -30,6 +32,7 @@ export interface NoteInput {
   contentType?: NoteContentType;
   sourceUrl?: string;
   author?: string;
+  section?: string;
 }
 
 export const DEFAULT_CATEGORIES: NoteCategory[] = [

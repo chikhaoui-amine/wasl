@@ -10,6 +10,7 @@ export interface NoteCategory {
   color: string;
   icon?: string;
   linkedCategoryIds?: string[];
+  sections?: string[];
 }
 
 export interface Note {
@@ -22,6 +23,7 @@ export interface Note {
   contentType?: NoteContentType;
   sourceUrl?: string;
   author?: string;
+  section?: string;
 }
 
 export interface NoteInput {
@@ -32,6 +34,7 @@ export interface NoteInput {
   contentType?: NoteContentType;
   sourceUrl?: string;
   author?: string;
+  section?: string;
 }
 
 export const DEFAULT_CATEGORIES: NoteCategory[] = [
@@ -112,10 +115,14 @@ export function normalizeNotesState(raw: unknown): NotesPersistedState {
         contentType: n.contentType || "note",
         pinned: Boolean(n.pinned),
         updatedAt: typeof n.updatedAt === "number" ? n.updatedAt : Date.now(),
+        section: typeof n.section === "string" && n.section.trim() ? n.section.trim() : undefined,
       }))
     : [];
   const categories = Array.isArray(obj.categories) && obj.categories.length > 0
-    ? obj.categories
+    ? obj.categories.map((c) => ({
+        ...c,
+        sections: Array.isArray(c.sections) ? c.sections.map(String).filter(Boolean) : undefined,
+      }))
     : DEFAULT_CATEGORIES;
 
   return {
@@ -196,7 +203,7 @@ export function addCategoryOperation(
 export function updateCategoryOperation(
   current: NotesPersistedState | null | undefined,
   id: string,
-  patch: Partial<{ name: string; color: string; icon?: string; linkedCategoryIds?: string[] }>,
+  patch: Partial<{ name: string; color: string; icon?: string; linkedCategoryIds?: string[]; sections?: string[] }>,
 ): NotesPersistedState {
   const base = normalizeNotesState(current);
   return {

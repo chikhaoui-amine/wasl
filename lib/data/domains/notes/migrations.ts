@@ -41,6 +41,7 @@ export function migrateNotesSnapshot(
     contentType: n.contentType || "note",
     sourceUrl: typeof n.sourceUrl === "string" ? n.sourceUrl : undefined,
     author: typeof n.author === "string" ? n.author : undefined,
+    section: typeof n.section === "string" && n.section.trim() ? n.section.trim() : undefined,
   }));
 
   const existingCategories: NoteCategory[] =
@@ -50,6 +51,7 @@ export function migrateNotesSnapshot(
           name: typeof c.name === "string" ? c.name : "Category",
           color: typeof c.color === "string" ? c.color : "var(--accent)",
           icon: typeof c.icon === "string" ? c.icon : undefined,
+          sections: Array.isArray(c.sections) ? c.sections.map(String).filter(Boolean) : undefined,
         }))
       : DEFAULT_CATEGORIES;
 

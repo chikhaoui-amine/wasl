@@ -11,6 +11,7 @@ export const NoteCategorySchema = z.object({
   color: z.string(),
   icon: z.string().optional(),
   linkedCategoryIds: z.array(z.string()).optional(),
+  sections: z.array(z.string()).optional(),
 });
 
 export const NoteContentTypeSchema = z.enum(["note", "read", "listen", "idea"]);
@@ -25,6 +26,7 @@ export const NoteSchema = z.object({
   contentType: NoteContentTypeSchema.optional(),
   sourceUrl: z.string().optional(),
   author: z.string().optional(),
+  section: z.string().optional(),
 });
 
 export const NotesStateSchema = z.object({
