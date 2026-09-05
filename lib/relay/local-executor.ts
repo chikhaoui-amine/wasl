@@ -629,18 +629,30 @@ export class LocalMcpExecutor {
         let category: { id: string; name: string; color: string; icon?: string; sections?: string[] } | null = null;
         await this.mutateStore("lifeos-notes", (current) => {
           const target = mutationTargetById(current.categories ?? [], args.id, "Note category", (item) => item.name);
+          const newName = typeof args.name === "string" ? args.name.trim() : undefined;
+          const shouldRenameNotes = newName && newName.toLowerCase().trim() !== target.name.toLowerCase().trim();
+
           const categories = (current.categories ?? []).map((item) => {
             if (item.id !== target.id) return item;
             category = {
               ...item,
-              ...(typeof args.name === "string" ? { name: args.name.trim() } : {}),
+              ...(newName ? { name: newName } : {}),
               ...(typeof args.color === "string" ? { color: args.color } : {}),
               ...(typeof args.icon === "string" ? { icon: args.icon } : {}),
               ...(args.sections !== undefined ? { sections: Array.isArray(args.sections) ? args.sections.map(String).filter(Boolean) : undefined } : {}),
             };
             return category;
           });
-          return { ...current, categories };
+
+          const notes = shouldRenameNotes
+            ? (current.notes ?? []).map((note) =>
+                note.tag.toLowerCase().trim() === target.name.toLowerCase().trim()
+                  ? { ...note, tag: newName, updatedAt: Date.now() }
+                  : note,
+              )
+            : current.notes;
+
+          return { ...current, categories, notes };
         });
         return { success: true, category };
       }

@@ -224,4 +224,44 @@ describe("NotesPage Sections & Drag-and-Drop", () => {
     const movedNote = currentState.notes.find((n) => n.id === "note-1");
     expect(movedNote?.section).toBe("Rejected");
   });
+
+  it("renders the edit pencil button for inferred category pages as well as saved categories", async () => {
+    // Add a note with an inferred category that does NOT exist in testCategories
+    currentState.notes.push({
+      id: "note-inferred",
+      title: "Marketing Strategy",
+      body: "Campaign details",
+      tag: "NQTI Marketing",
+      pinned: false,
+      updatedAt: 4000,
+    });
+
+    const mockAdapter: Partial<DataAdapter> = {
+      initialize: () => Promise.resolve(),
+      getStore: () =>
+        Promise.resolve({
+          store: "lifeos-notes",
+          version: 3,
+          state: currentState,
+          updatedAt: "2026-09-05",
+        }) as any,
+      mutateStore: mutateStore as any,
+      getAllStores: () => Promise.resolve([]),
+      subscribe: () => () => {},
+    };
+
+    renderPage(mockAdapter);
+
+    // Both saved category and inferred category should appear in tabs
+    const ideasTab = await screen.findByRole("button", { name: /Ideas/ });
+    const nqtiTab = await screen.findByRole("button", { name: /NQTI Marketing/ });
+    expect(ideasTab).toBeDefined();
+    expect(nqtiTab).toBeDefined();
+
+    // The pencil edit button must be present for BOTH categories
+    const nqtiContainer = nqtiTab.closest("div");
+    const nqtiEditBtn = nqtiContainer?.querySelector("button[title='Edit or Delete Custom Page']");
+    expect(nqtiEditBtn).not.toBeNull();
+  });
 });
+

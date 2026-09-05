@@ -153,8 +153,9 @@ export function useNotesData() {
     async (
       id: string,
       patch: { name?: string; color?: string; icon?: string; linkedCategoryIds?: string[]; sections?: string[] },
+      previousName?: string,
     ): Promise<void> => {
-      await mutation.mutateAsync((current) => updateCategoryOperation(current, id, patch));
+      await mutation.mutateAsync((current) => updateCategoryOperation(current, id, patch, previousName));
     },
     [mutation],
   );
@@ -167,9 +168,9 @@ export function useNotesData() {
   );
 
   const deleteCategory = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string, targetName?: string): Promise<void> => {
       const now = Date.now();
-      await mutation.mutateAsync((current) => deleteCategoryOperation(current, id, now));
+      await mutation.mutateAsync((current) => deleteCategoryOperation(current, id, now, targetName));
     },
     [mutation],
   );

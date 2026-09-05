@@ -132,6 +132,40 @@ describe("Notes Domain — Pure Operations", () => {
     expect(clearedSection.notes[0].section).toBeUndefined();
   });
 
+  it("synchronizes notes when category is renamed, and handles inferred categories", () => {
+    const initial: NotesPersistedState = {
+      notes: [
+        { id: "note-1", title: "Idea 1", body: "text", tag: "Ideas", pinned: false, updatedAt: 1000 },
+        { id: "note-2", title: "Marketing Plan", body: "text", tag: "NQTI Marketing", pinned: false, updatedAt: 1500 },
+      ],
+      categories: [{ id: "cat-ideas", name: "Ideas", color: "#37c9b7" }],
+    };
+
+    // 1. Renaming existing category "Ideas" -> "Big Ideas" should update note tags
+    const renamed = updateCategoryOperation(initial, "cat-ideas", { name: "Big Ideas" });
+    expect(renamed.categories.find((c) => c.id === "cat-ideas")?.name).toBe("Big Ideas");
+    expect(renamed.notes.find((n) => n.id === "note-1")?.tag).toBe("Big Ideas");
+
+    // 2. Updating inferred category "NQTI Marketing" (not in initial.categories) should promote it and save sections
+    const promoted = updateCategoryOperation(
+      renamed,
+      "cat-nqti-marketing",
+      { name: "NQTI Marketing", color: "#ff0000", sections: ["Active", "Archive"] },
+      "NQTI Marketing",
+    );
+    const nqtiCat = promoted.categories.find((c) => c.name === "NQTI Marketing");
+    expect(nqtiCat).toBeDefined();
+    expect(nqtiCat?.color).toBe("#ff0000");
+    expect(nqtiCat?.sections).toEqual(["Active", "Archive"]);
+    expect(promoted.notes.find((n) => n.id === "note-2")?.tag).toBe("NQTI Marketing");
+
+    // 3. Deleting inferred or saved category re-tags notes to fallback
+    const deletedInferred = deleteCategoryOperation(promoted, "cat-nqti-marketing", 2500, "NQTI Marketing");
+    expect(deletedInferred.categories.find((c) => c.name === "NQTI Marketing")).toBeUndefined();
+    expect(deletedInferred.notes.find((n) => n.id === "note-2")?.tag).toBe("Big Ideas");
+  });
+
+
   it("handles large note content smoothly without truncation", () => {
     const initial: NotesPersistedState = { notes: [], categories: DEFAULT_CATEGORIES };
     const largeBody = "# Extensive Document\n\n" + "Lorem ipsum dolor sit amet. ".repeat(10000);

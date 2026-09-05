@@ -6,6 +6,7 @@ import {
   CoalescingSaveQueue,
   registerPendingSaveHandler,
   type Note,
+  type NoteCategory,
   type NoteContentType,
   type SaveStatus,
 } from "@/lib/data/domains/notes";
@@ -42,6 +43,7 @@ import {
 } from "lucide-react";
 import { exportNoteAsMarkdown } from "@/lib/notes-export";
 import { parseMarkdownNote } from "@/lib/notes-import";
+import { getEffectiveCategories } from "@/lib/notes-graph";
 import { CategoryForm } from "./CategoryForm";
 import { ImageInsertModal } from "./ImageInsertModal";
 import {
@@ -55,7 +57,8 @@ import {
 import { cn } from "@/lib/utils";
 
 export interface NoteFormData {
-  categories: readonly { id?: string; name: string; color?: string; sections?: string[] }[];
+  notes?: readonly Note[];
+  categories: readonly { id?: string; name: string; color?: string; sections?: string[]; linkedCategoryIds?: string[] }[];
   addNote: (input: { title: string; body: string; tag: string; section?: string; pinned?: boolean; contentType?: NoteContentType; sourceUrl?: string; author?: string }) => Promise<Note>;
   updateNote: (id: string, patch: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
@@ -111,6 +114,15 @@ export function NoteForm({
 }) {
   const notesData = useNotesData();
   const { categories, addNote, updateNote, deleteNote, edition } = data ?? notesData;
+  const currentNotes = (data?.notes ?? notesData.notes ?? []) as Note[];
+  const normalizedCategories: NoteCategory[] = (categories ?? []).map((c) => ({
+    id: c.id || `cat-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    name: c.name,
+    color: c.color || "var(--accent)",
+    sections: c.sections,
+    linkedCategoryIds: c.linkedCategoryIds ? [...c.linkedCategoryIds] : [],
+  }));
+  const visibleCategories = getEffectiveCategories(currentNotes, normalizedCategories);
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -134,7 +146,7 @@ export function NoteForm({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorSessionKey = getNoteEditorSessionKey(open, note?.id);
-  const defaultCategoryName = getDefaultNoteCategoryName(categories);
+  const defaultCategoryName = getDefaultNoteCategoryName(visibleCategories);
   const lastSavedPayloadRef = useRef<string>("");
   const initialType: NoteContentType = "note";
 
@@ -551,7 +563,7 @@ export function NoteForm({
     setBody((prev) => prev.replace(regex, ""));
   };
 
-  const activeCategory = categories.find((c) => c.name.toLowerCase() === (tag || defaultCategoryName).toLowerCase());
+  const activeCategory = visibleCategories.find((c) => c.name.toLowerCase() === (tag || defaultCategoryName).toLowerCase());
   const activeCategoryColor = activeCategory?.color || "var(--accent)";
 
   const words = body ? body.trim().split(/\s+/).filter(Boolean).length : 0;
@@ -595,7 +607,7 @@ export function NoteForm({
                     } else {
                       const nextTag = e.target.value;
                       setTag(nextTag);
-                      const targetCat = categories.find((c) => c.name.toLowerCase() === nextTag.toLowerCase());
+                      const targetCat = visibleCategories.find((c) => c.name.toLowerCase() === nextTag.toLowerCase());
                       if (!targetCat?.sections?.includes(section || "")) {
                         setSection(undefined);
                       }
@@ -605,7 +617,7 @@ export function NoteForm({
                   className="bg-transparent font-semibold outline-none cursor-pointer border-none text-xs truncate"
                   style={{ color: activeCategoryColor }}
                 >
-                  {categories.map((c) => (
+                  {visibleCategories.map((c) => (
                     <option key={c.id} value={c.name} className="bg-surface-1 text-text">
                       {c.name}
                     </option>

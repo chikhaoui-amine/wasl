@@ -20,6 +20,8 @@ export function CategoryForm(props: {
   open: boolean;
   onClose: () => void;
   category?: NoteCategory;
+  onSaved?: (saved: NoteCategory, oldName?: string) => void;
+  onDeleted?: (deletedId: string, deletedName: string) => void;
 }) {
   if (!props.open) return null;
   return <CategoryFormInner key={props.category?.id ?? "new"} {...props} />;
@@ -29,10 +31,14 @@ function CategoryFormInner({
   open,
   onClose,
   category,
+  onSaved,
+  onDeleted,
 }: {
   open: boolean;
   onClose: () => void;
   category?: NoteCategory;
+  onSaved?: (saved: NoteCategory, oldName?: string) => void;
+  onDeleted?: (deletedId: string, deletedName: string) => void;
 }) {
   const { addCategory, updateCategory, deleteCategory } = useNotesData();
   const [name, setName] = useState(category?.name ?? "");
@@ -66,11 +72,14 @@ function CategoryFormInner({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
     if (category) {
-      await updateCategory(category.id, { name: name.trim(), color, sections });
+      await updateCategory(category.id, { name: trimmedName, color, sections }, category.name);
+      onSaved?.({ ...category, name: trimmedName, color, sections }, category.name);
     } else {
-      await addCategory({ name: name.trim(), color, sections });
+      const created = await addCategory({ name: trimmedName, color, sections });
+      onSaved?.(created);
     }
     onClose();
   };
@@ -187,7 +196,8 @@ function CategoryFormInner({
           onDelete={
             category
               ? async () => {
-                  await deleteCategory(category.id);
+                  await deleteCategory(category.id, category.name);
+                  onDeleted?.(category.id, category.name);
                   onClose();
                 }
               : undefined

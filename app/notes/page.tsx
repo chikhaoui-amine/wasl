@@ -212,7 +212,7 @@ export default function NotesPage() {
 
   const currentCategory =
     selectedCategory !== "All"
-      ? categories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase())
+      ? visibleCategories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase())
       : undefined;
   const categorySections = currentCategory?.sections ?? [];
   const hasSections = selectedCategory !== "All" && categorySections.length > 0;
@@ -471,7 +471,6 @@ export default function NotesPage() {
 
             {visibleCategories.map((cat) => {
               const isSelected = selectedCategory === cat.name;
-              const isSavedCategory = categories.some((saved) => saved.id === cat.id);
               return (
                 <div
                   key={cat.id}
@@ -493,7 +492,7 @@ export default function NotesPage() {
                     <span>{cat.name}</span>
                   </button>
 
-                  {isSavedCategory && <button
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingCategory(cat);
@@ -502,7 +501,7 @@ export default function NotesPage() {
                     className="ml-0.5 grid h-4 w-4 place-items-center rounded-full text-faint opacity-60 transition-opacity hover:opacity-100 hover:bg-surface-2"
                   >
                     <Pencil className="h-2.5 w-2.5" />
-                  </button>}
+                  </button>
                 </div>
               );
             })}
@@ -702,7 +701,7 @@ export default function NotesPage() {
             {viewMode === "split" && (
               <NoteSplitView
                 notes={sorted}
-                categories={categories}
+                categories={visibleCategories}
                 activeNoteId={activeSplitNoteId}
                 onSelectNote={(note) => setActiveSplitNoteId(note.id)}
                 onNewNote={() => setCreatingNote(true)}
@@ -712,7 +711,7 @@ export default function NotesPage() {
             {viewMode === "list" && (
               <NoteListView
                 notes={sorted}
-                categories={categories}
+                categories={visibleCategories}
                 onRead={(note) => setReadingNote(note)}
                 onEdit={(note) => setEditing(note)}
                 onNewNote={() => setCreatingNote(true)}
@@ -744,8 +743,28 @@ export default function NotesPage() {
         defaultSection={newNoteSection}
       />
       <NoteForm open={!!editing} onClose={() => setEditing(undefined)} note={editing} />
-      <CategoryForm open={creatingCategory} onClose={() => setCreatingCategory(false)} />
-      <CategoryForm open={!!editingCategory} onClose={() => setEditingCategory(undefined)} category={editingCategory} />
+      <CategoryForm
+        open={creatingCategory}
+        onClose={() => setCreatingCategory(false)}
+        onSaved={(saved) => {
+          setSelectedCategory(saved.name);
+        }}
+      />
+      <CategoryForm
+        open={!!editingCategory}
+        onClose={() => setEditingCategory(undefined)}
+        category={editingCategory}
+        onSaved={(saved, oldName) => {
+          if (oldName && selectedCategory.toLowerCase() === oldName.toLowerCase()) {
+            setSelectedCategory(saved.name);
+          }
+        }}
+        onDeleted={(_deletedId, deletedName) => {
+          if (selectedCategory.toLowerCase() === deletedName.toLowerCase()) {
+            setSelectedCategory("All");
+          }
+        }}
+      />
     </Hydrate>
   );
 }

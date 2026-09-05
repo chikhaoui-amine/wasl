@@ -204,11 +204,56 @@ export function updateCategoryOperation(
   current: NotesPersistedState | null | undefined,
   id: string,
   patch: Partial<{ name: string; color: string; icon?: string; linkedCategoryIds?: string[]; sections?: string[] }>,
+  previousName?: string,
 ): NotesPersistedState {
   const base = normalizeNotesState(current);
+  const targetCat = base.categories.find(
+    (c) => c.id === id || (previousName && c.name.toLowerCase().trim() === previousName.toLowerCase().trim()),
+  );
+
+  const oldName = targetCat ? targetCat.name : previousName;
+  const newName = patch.name ? patch.name.trim() : undefined;
+
+  let updatedCategories: NoteCategory[];
+  if (targetCat) {
+    updatedCategories = base.categories.map((c) =>
+      c.id === targetCat.id
+        ? {
+            ...c,
+            ...patch,
+            ...(newName ? { name: newName } : {}),
+            sections: patch.sections !== undefined ? patch.sections : c.sections,
+          }
+        : c,
+    );
+  } else {
+    // Inferred category being explicitly saved or configured
+    const newCat: NoteCategory = {
+      id: id.startsWith("cat-") ? id : `cat-${crypto.randomUUID()}`,
+      name: newName || oldName || "Untitled Page",
+      color: patch.color || "var(--accent)",
+      icon: patch.icon,
+      linkedCategoryIds: patch.linkedCategoryIds || [],
+      sections: patch.sections,
+    };
+    updatedCategories = [...base.categories, newCat];
+  }
+
+  // If category was renamed, synchronize note tags
+  let updatedNotes = base.notes;
+  if (oldName && newName && oldName.toLowerCase().trim() !== newName.toLowerCase().trim()) {
+    const now = Date.now();
+    updatedNotes = base.notes.map((n) =>
+      n.tag.toLowerCase().trim() === oldName.toLowerCase().trim()
+        ? { ...n, tag: newName, updatedAt: now }
+        : n,
+    );
+  }
+
   return {
     ...base,
-    categories: base.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    categories: updatedCategories,
+    notes: updatedNotes,
   };
 }
 
@@ -216,20 +261,29 @@ export function deleteCategoryOperation(
   current: NotesPersistedState | null | undefined,
   id: string,
   now: number = Date.now(),
+  targetName?: string,
 ): NotesPersistedState {
   const base = normalizeNotesState(current);
-  const targetCat = base.categories.find((c) => c.id === id);
+  const targetCat = base.categories.find(
+    (c) => c.id === id || (targetName && c.name.toLowerCase().trim() === targetName.toLowerCase().trim()),
+  );
+  const nameToMatch = targetCat ? targetCat.name : targetName;
+
   const updatedCategories = base.categories
-    .filter((c) => c.id !== id)
+    .filter(
+      (c) =>
+        c.id !== id &&
+        (!nameToMatch || c.name.toLowerCase().trim() !== nameToMatch.toLowerCase().trim()),
+    )
     .map((c) => ({
       ...c,
       linkedCategoryIds: c.linkedCategoryIds?.filter((lid) => lid !== id),
     }));
   const defaultTagName = updatedCategories[0]?.name || "Personal";
 
-  const updatedNotes = targetCat
+  const updatedNotes = nameToMatch
     ? base.notes.map((n) =>
-        n.tag.toLowerCase() === targetCat.name.toLowerCase()
+        n.tag.toLowerCase().trim() === nameToMatch.toLowerCase().trim()
           ? { ...n, tag: defaultTagName, updatedAt: now }
           : n,
       )
