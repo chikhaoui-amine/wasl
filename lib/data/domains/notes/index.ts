@@ -7,6 +7,8 @@ export {
   updateNoteOperation,
   togglePinOperation,
   deleteNoteOperation,
+  deleteNotesOperation,
+  moveNotesToCategoryOperation,
   addCategoryOperation,
   updateCategoryOperation,
   deleteCategoryOperation,

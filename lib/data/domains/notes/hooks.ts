@@ -6,7 +6,7 @@ import { useDataAdapter, useDataEdition, useDataUserId } from "../../query/provi
 import { queryKeys } from "../../query/keys";
 import { useSerializedMutations } from "../../query/mutation-queue";
 import type { NotesPersistedState } from "../../types";
-import { deleteEntityWithTrash } from "../trash";
+import { deleteEntityWithTrash, deleteEntitiesWithTrash } from "../trash";
 import {
   createDefaultNotesState,
   normalizeNotesState,
@@ -14,6 +14,8 @@ import {
   updateNoteOperation,
   togglePinOperation,
   deleteNoteOperation,
+  deleteNotesOperation,
+  moveNotesToCategoryOperation,
   addCategoryOperation,
   updateCategoryOperation,
   deleteCategoryOperation,
@@ -133,6 +135,49 @@ export function useNotesData() {
     [state.notes, adapter, mutation],
   );
 
+  const deleteNotes = useCallback(
+    async (ids: string[]): Promise<void> => {
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      let targetNotes = state.notes.filter((n) => idSet.has(n.id));
+
+      if (targetNotes.length < ids.length && adapter) {
+        const doc = await adapter.getStore(STORE_KEY);
+        const docState = normalizeNotesState(doc?.state);
+        targetNotes = docState.notes.filter((n) => idSet.has(n.id));
+      }
+
+      if (targetNotes.length > 0 && adapter) {
+        await deleteEntitiesWithTrash(adapter, {
+          items: targetNotes.map((note) => ({
+            itemType: "note" as const,
+            entity: note,
+            title: note.title || "Untitled Note",
+            description: note.body?.substring(0, 80),
+            originalStoreKey: STORE_KEY,
+          })),
+          deleteFromSource: async () => {
+            await mutation.mutateAsync((current) => deleteNotesOperation(current, ids));
+          },
+        });
+      } else {
+        await mutation.mutateAsync((current) => deleteNotesOperation(current, ids));
+      }
+    },
+    [state.notes, adapter, mutation],
+  );
+
+  const moveNotesToCategory = useCallback(
+    async (ids: string[], targetCategory: string): Promise<void> => {
+      if (ids.length === 0) return;
+      const now = Date.now();
+      await mutation.mutateAsync((current) =>
+        moveNotesToCategoryOperation(current, ids, targetCategory, now),
+      );
+    },
+    [mutation],
+  );
+
   const addCategory = useCallback(
     async (input: { name: string; color: string; icon?: string; linkedCategoryIds?: string[]; sections?: string[] }): Promise<NoteCategory> => {
       const cat: NoteCategory = {
@@ -194,6 +239,8 @@ export function useNotesData() {
     setNoteSection,
     togglePin,
     deleteNote,
+    deleteNotes,
+    moveNotesToCategory,
     addCategory,
     updateCategory,
     deleteCategory,

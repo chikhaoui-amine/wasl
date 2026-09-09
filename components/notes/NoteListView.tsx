@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ExternalLink, Headphones, Lightbulb, Pencil, Pin, StickyNote, Trash2 } from "lucide-react";
+import { BookOpen, ExternalLink, Headphones, Lightbulb, Pencil, Pin, StickyNote, Trash2, CheckSquare, Square } from "lucide-react";
 import { useNotesData, relTime, type Note, type NoteCategory, type NoteContentType } from "@/lib/data/domains/notes";
 import { isRtlText } from "@/components/ui/MarkdownRenderer";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,9 @@ interface NoteListViewProps {
   onRead: (note: Note) => void;
   onEdit: (note: Note) => void;
   onNewNote: () => void;
+  isSelectionMode?: boolean;
+  selectedNoteIds?: Set<string>;
+  onToggleSelect?: (noteId: string) => void;
 }
 
 export function NoteListView({
@@ -26,6 +29,9 @@ export function NoteListView({
   onRead,
   onEdit,
   onNewNote,
+  isSelectionMode,
+  selectedNoteIds,
+  onToggleSelect,
 }: NoteListViewProps) {
   const { togglePin, deleteNote } = useNotesData();
 
@@ -46,6 +52,7 @@ export function NoteListView({
   return (
     <div className="overflow-hidden rounded-2xl border border-border/80 bg-surface-1/90 backdrop-blur-md shadow-xs divide-y divide-border/50">
       {notes.map((note) => {
+        const isSelected = selectedNoteIds?.has(note.id) ?? false;
         const cat = categories.find((c) => c.name.toLowerCase() === note.tag.toLowerCase());
         const catColor = cat?.color || "var(--accent)";
         const contentType: NoteContentType = note.contentType || "note";
@@ -55,14 +62,40 @@ export function NoteListView({
         return (
           <div
             key={note.id}
-            onClick={() => onRead(note)}
+            onClick={() => {
+              if (isSelectionMode) {
+                onToggleSelect?.(note.id);
+              } else {
+                onRead(note);
+              }
+            }}
             className={cn(
               "group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 sm:p-4 transition-colors hover:bg-surface-2/60 cursor-pointer",
-              note.pinned && "bg-accent/5",
+              note.pinned && !isSelected && "bg-accent/5",
+              isSelected && "bg-accent/10 hover:bg-accent/15",
             )}
           >
-            {/* Main Info - Title Only */}
-            <div className="flex-1 min-w-0 space-y-1">
+            {/* Checkbox in selection mode + Main Info */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {isSelectionMode && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSelect?.(note.id);
+                  }}
+                  className="grid h-5 w-5 place-items-center text-accent shrink-0 focus:outline-none"
+                  aria-label={isSelected ? `Deselect ${note.title}` : `Select ${note.title}`}
+                >
+                  {isSelected ? (
+                    <CheckSquare className="h-4 w-4" />
+                  ) : (
+                    <Square className="h-4 w-4 text-faint hover:text-muted" />
+                  )}
+                </button>
+              )}
+
+              <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span
                   className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -100,6 +133,7 @@ export function NoteListView({
                 {note.title}
               </h4>
             </div>
+          </div>
 
             {/* Right Metadata & Action Buttons */}
             <div

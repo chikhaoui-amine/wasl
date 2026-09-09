@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   BookOpen,
   ExternalLink,
@@ -18,8 +18,12 @@ import {
   Network,
   Upload,
   Loader2,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { importMarkdownFiles } from "@/lib/notes-import";
+import { exportNotesAsFiles } from "@/lib/notes-export";
+import { NotesBulkActionBar } from "@/components/notes/NotesBulkActionBar";
 import { useNotesData, relTime, type Note, type NoteCategory, type NoteContentType } from "@/lib/data/domains/notes";
 import { NoteForm } from "@/components/forms/NoteForm";
 import { NoteDetail } from "@/components/details/NoteDetail";
@@ -58,6 +62,9 @@ function NoteCard({
   isDragging,
   onDragStart,
   onDragEnd,
+  isSelectionMode,
+  isSelected,
+  onToggleSelect,
 }: {
   note: Note;
   onRead: () => void;
@@ -67,6 +74,9 @@ function NoteCard({
   isDragging?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const { togglePin, categories } = useNotesData();
   const category = categories.find((c) => c.name.toLowerCase() === note.tag.toLowerCase());
@@ -77,17 +87,38 @@ function NoteCard({
 
   return (
     <article
-      draggable={!!onDragStart}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      draggable={!isSelectionMode && !!onDragStart}
+      onDragStart={!isSelectionMode ? onDragStart : undefined}
+      onDragEnd={!isSelectionMode ? onDragEnd : undefined}
+      onClick={isSelectionMode ? onToggleSelect : undefined}
       className={cn(
         "card card-hover mb-3 sm:mb-4 block break-inside-avoid p-4 sm:p-5 transition-all group",
-        onDragStart && "cursor-grab active:cursor-grabbing select-none",
+        !isSelectionMode && onDragStart && "cursor-grab active:cursor-grabbing select-none",
         isDragging && "opacity-30 scale-[0.98] border-dashed border-accent",
+        isSelectionMode && "cursor-pointer",
+        isSelected && "ring-2 ring-accent bg-accent/5 border-accent shadow-md",
       )}
     >
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {isSelectionMode && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect?.();
+              }}
+              className="grid h-5 w-5 place-items-center text-accent shrink-0 focus:outline-none"
+              aria-label={isSelected ? `Deselect ${note.title}` : `Select ${note.title}`}
+            >
+              {isSelected ? (
+                <CheckSquare className="h-4 w-4" />
+              ) : (
+                <Square className="h-4 w-4 text-faint hover:text-muted" />
+              )}
+            </button>
+          )}
+
           <span
             className="inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-[11px] font-medium"
             style={{
@@ -136,14 +167,20 @@ function NoteCard({
 
         <div className="flex items-center gap-0.5">
           <button
-            onClick={onEdit}
+            onClick={(e) => {
+              if (isSelectionMode) e.stopPropagation();
+              onEdit();
+            }}
             title="Edit note"
             className="grid h-6 w-6 place-items-center rounded-md text-faint opacity-60 transition-all hover:bg-surface-2 hover:text-accent hover:opacity-100"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => togglePin(note.id)}
+            onClick={(e) => {
+              if (isSelectionMode) e.stopPropagation();
+              togglePin(note.id);
+            }}
             aria-label={note.pinned ? "Unpin" : "Pin"}
             className={cn(
               "grid h-6 w-6 place-items-center rounded-md transition-colors hover:bg-surface-2",
@@ -155,7 +192,10 @@ function NoteCard({
         </div>
       </div>
 
-      <button onClick={onRead} className="block w-full text-left group-hover:opacity-95 transition-opacity">
+      <button
+        onClick={isSelectionMode ? onToggleSelect : onRead}
+        className="block w-full text-left group-hover:opacity-95 transition-opacity"
+      >
         {/* Note Title - Only Title Appears */}
         <h3
           dir={isRtlText(note.title) ? "rtl" : "ltr"}
@@ -198,6 +238,8 @@ export default function NotesPage() {
     categories,
     addNote,
     updateNote,
+    deleteNotes,
+    moveNotesToCategory,
     addCategory,
     updateCategory,
     updateGraphPosition,
@@ -209,6 +251,38 @@ export default function NotesPage() {
   const [newNoteSection, setNewNoteSection] = useState<string | undefined>(undefined);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dragOverSection, setDragOverSection] = useState<string | null>(null);
+
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
+
+  // Escape key listener to exit selection mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSelectionMode) {
+        setIsSelectionMode(false);
+        setSelectedNoteIds(new Set());
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSelectionMode]);
+
+  const handleToggleSelect = (noteId: string) => {
+    setSelectedNoteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(noteId)) {
+        next.delete(noteId);
+      } else {
+        next.add(noteId);
+      }
+      return next;
+    });
+  };
+
+  const handleExitSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedNoteIds(new Set());
+  };
 
   const currentCategory =
     selectedCategory !== "All"
@@ -330,6 +404,35 @@ export default function NotesPage() {
     (a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt - a.updatedAt,
   );
 
+  const handleToggleSelectAll = () => {
+    if (selectedNoteIds.size === sorted.length) {
+      setSelectedNoteIds(new Set());
+    } else {
+      setSelectedNoteIds(new Set(sorted.map((n) => n.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedNoteIds);
+    if (ids.length === 0) return;
+    await deleteNotes(ids);
+    setSelectedNoteIds(new Set());
+    setIsSelectionMode(false);
+  };
+
+  const handleBulkMoveCategory = async (targetCategory: string) => {
+    const ids = Array.from(selectedNoteIds);
+    if (ids.length === 0) return;
+    await moveNotesToCategory(ids, targetCategory);
+    setSelectedNoteIds(new Set());
+  };
+
+  const handleBulkExport = async () => {
+    const selectedNotes = notes.filter((n) => selectedNoteIds.has(n.id));
+    if (selectedNotes.length === 0) return;
+    await exportNotesAsFiles(selectedNotes);
+  };
+
   return (
     <Hydrate>
       <div className="space-y-5">
@@ -422,6 +525,27 @@ export default function NotesPage() {
               )}
               <span className="hidden sm:inline">{importing ? "Importing..." : "Import .md"}</span>
               <span className="sm:hidden">{importing ? "..." : "Import"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isSelectionMode) {
+                  handleExitSelection();
+                } else {
+                  setIsSelectionMode(true);
+                }
+              }}
+              title={isSelectionMode ? "Exit multi-selection mode (Esc)" : "Select multiple notes"}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                isSelectionMode
+                  ? "border-accent bg-accent/15 text-accent shadow-xs"
+                  : "border-border bg-surface-1 text-muted hover:bg-surface-hover hover:text-text",
+              )}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              <span>{isSelectionMode ? "Done" : "Select"}</span>
             </button>
 
             <button
@@ -595,6 +719,9 @@ export default function NotesPage() {
                                 isDragging={draggedNoteId === n.id}
                                 onDragStart={(e) => handleDragStart(e, n.id)}
                                 onDragEnd={handleDragEnd}
+                                isSelectionMode={isSelectionMode}
+                                isSelected={selectedNoteIds.has(n.id)}
+                                onToggleSelect={() => handleToggleSelect(n.id)}
                               />
                             ))}
                         </div>
@@ -670,6 +797,9 @@ export default function NotesPage() {
                                   isDragging={draggedNoteId === n.id}
                                   onDragStart={(e) => handleDragStart(e, n.id)}
                                   onDragEnd={handleDragEnd}
+                                  isSelectionMode={isSelectionMode}
+                                  isSelected={selectedNoteIds.has(n.id)}
+                                  onToggleSelect={() => handleToggleSelect(n.id)}
                                 />
                               ))}
                             </div>
@@ -692,6 +822,9 @@ export default function NotesPage() {
                       isDragging={draggedNoteId === n.id}
                       onDragStart={(e) => handleDragStart(e, n.id)}
                       onDragEnd={handleDragEnd}
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedNoteIds.has(n.id)}
+                      onToggleSelect={() => handleToggleSelect(n.id)}
                     />
                   ))}
                 </div>
@@ -705,6 +838,9 @@ export default function NotesPage() {
                 activeNoteId={activeSplitNoteId}
                 onSelectNote={(note) => setActiveSplitNoteId(note.id)}
                 onNewNote={() => setCreatingNote(true)}
+                isSelectionMode={isSelectionMode}
+                selectedNoteIds={selectedNoteIds}
+                onToggleSelect={handleToggleSelect}
               />
             )}
 
@@ -715,11 +851,28 @@ export default function NotesPage() {
                 onRead={(note) => setReadingNote(note)}
                 onEdit={(note) => setEditing(note)}
                 onNewNote={() => setCreatingNote(true)}
+                isSelectionMode={isSelectionMode}
+                selectedNoteIds={selectedNoteIds}
+                onToggleSelect={handleToggleSelect}
               />
             )}
           </>
         )}
       </div>
+
+      {isSelectionMode && (
+        <NotesBulkActionBar
+          selectedCount={selectedNoteIds.size}
+          totalCount={sorted.length}
+          allSelected={sorted.length > 0 && selectedNoteIds.size === sorted.length}
+          onToggleSelectAll={handleToggleSelectAll}
+          onDeleteSelected={handleBulkDelete}
+          onMoveCategory={handleBulkMoveCategory}
+          onExportSelected={handleBulkExport}
+          onExitSelection={handleExitSelection}
+          categories={categories}
+        />
+      )}
 
       {/* Read Mode Detail Modal */}
       <NoteDetail

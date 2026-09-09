@@ -14,9 +14,11 @@ export {
 
 export {
   deleteEntityWithTrash,
+  deleteEntitiesWithTrash,
   restoreEntityFromTrash,
   restoreDefaultProgramsService,
   TrashConflictError,
+  type BulkTrashItemOption,
 } from "./service";
 
 export { CURRENT_TRASH_VERSION, migrateTrashSnapshot } from "./migrations";

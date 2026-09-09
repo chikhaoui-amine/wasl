@@ -21,6 +21,7 @@ import {
   Italic,
   List,
   CheckSquare,
+  Square,
   Heading2,
   Heading3,
 } from "lucide-react";
@@ -56,6 +57,9 @@ interface NoteSplitViewProps {
   activeNoteId?: string;
   onSelectNote: (note: Note) => void;
   onNewNote: () => void;
+  isSelectionMode?: boolean;
+  selectedNoteIds?: Set<string>;
+  onToggleSelect?: (noteId: string) => void;
 }
 
 interface InlineDraftPayload {
@@ -70,6 +74,9 @@ export function NoteSplitView({
   activeNoteId,
   onSelectNote,
   onNewNote,
+  isSelectionMode,
+  selectedNoteIds,
+  onToggleSelect,
 }: NoteSplitViewProps) {
   const { togglePin, deleteNote, updateNote, edition } = useNotesData();
   const selectedNote = notes.find((n) => n.id === activeNoteId) || notes[0];
@@ -262,7 +269,8 @@ export function NoteSplitView({
 
         <div className="flex-1 overflow-y-auto divide-y divide-border/40 p-2 space-y-1 scrollbar-thin">
           {notes.map((note) => {
-            const isSelected = selectedNote?.id === note.id;
+            const isNoteActive = selectedNote?.id === note.id;
+            const isChecked = selectedNoteIds?.has(note.id) ?? false;
             const itemCat = categories.find((c) => c.name.toLowerCase() === note.tag.toLowerCase());
             const itemColor = itemCat?.color || "var(--accent)";
 
@@ -270,6 +278,10 @@ export function NoteSplitView({
               <button
                 key={note.id}
                 onClick={async () => {
+                  if (isSelectionMode) {
+                    onToggleSelect?.(note.id);
+                    return;
+                  }
                   if (isEditingInline) {
                     await flushSave();
                   }
@@ -278,25 +290,40 @@ export function NoteSplitView({
                 }}
                 className={cn(
                   "w-full rounded-xl p-3 text-left transition-all duration-150 relative group",
-                  isSelected
+                  isSelectionMode
+                    ? isChecked
+                      ? "bg-accent/15 border border-accent shadow-xs"
+                      : "hover:bg-surface-2/60 border border-transparent"
+                    : isNoteActive
                     ? "bg-accent/10 border border-accent/40 shadow-xs"
                     : "hover:bg-surface-2/60 border border-transparent",
                 )}
               >
                 <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                  <span
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5"
-                    style={{
-                      background: `color-mix(in oklab, ${itemColor} 15%, transparent)`,
-                      color: itemColor,
-                    }}
-                  >
+                  <div className="flex items-center gap-1.5">
+                    {isSelectionMode && (
+                      <div className="text-accent shrink-0">
+                        {isChecked ? (
+                          <CheckSquare className="h-3.5 w-3.5" />
+                        ) : (
+                          <Square className="h-3.5 w-3.5 text-faint hover:text-muted" />
+                        )}
+                      </div>
+                    )}
                     <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: itemColor }}
-                    />
-                    {note.tag}
-                  </span>
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5"
+                      style={{
+                        background: `color-mix(in oklab, ${itemColor} 15%, transparent)`,
+                        color: itemColor,
+                      }}
+                    >
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: itemColor }}
+                      />
+                      {note.tag}
+                    </span>
+                  </div>
 
                   {note.section && (
                     <span className="inline-flex items-center gap-1 text-[9px] font-semibold rounded-full px-1.5 py-0.5 border border-border/80 bg-surface-2 text-accent truncate max-w-[80px]">
@@ -315,7 +342,7 @@ export function NoteSplitView({
                   dir={isRtlText(note.title) ? "rtl" : "ltr"}
                   className={cn(
                     "text-xs sm:text-[13px] font-bold line-clamp-2 text-text",
-                    isSelected && "text-accent",
+                    (isSelectionMode ? isChecked : isNoteActive) && "text-accent",
                   )}
                 >
                   {note.title}

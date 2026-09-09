@@ -1,41 +1,221 @@
 import type { Note } from "./data/domains/notes";
 
-export function formatNoteAsMarkdownString(note: Note): string {
-  const dateStr = note.updatedAt ? new Date(note.updatedAt).toISOString().split("T")[0] : "";
-  const lines = [
+export function sanitizeFileName(name: string): string {
+  const sanitized = name
+    .replace(/[<>:"/\\|?*]+/g, " - ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[-_\s]+|[-_\s]+$/g, "");
+  return sanitized || "untitled-note";
+}
+
+/**
+ * Formats a Note entity into Markdown with YAML frontmatter.
+ * Designed to be symmetrical with `lib/notes-import.ts`.
+ */
+export function formatNoteToMarkdown(note: Note): string {
+  const frontmatterLines: string[] = [
     "---",
-    `title: ${JSON.stringify(note.title || "Untitled")}`,
+    `title: ${JSON.stringify(note.title || "Untitled Note")}`,
     `tag: ${JSON.stringify(note.tag || "General")}`,
   ];
 
-  if (note.contentType) lines.push(`contentType: ${JSON.stringify(note.contentType)}`);
-  if (note.author) lines.push(`author: ${JSON.stringify(note.author)}`);
-  if (note.sourceUrl) lines.push(`sourceUrl: ${JSON.stringify(note.sourceUrl)}`);
-  if (dateStr) lines.push(`updated: ${JSON.stringify(dateStr)}`);
-  if (note.pinned) lines.push(`pinned: true`);
+  if (note.author) {
+    frontmatterLines.push(`author: ${JSON.stringify(note.author)}`);
+  }
+  if (note.sourceUrl) {
+    frontmatterLines.push(`sourceUrl: ${JSON.stringify(note.sourceUrl)}`);
+  }
+  if (note.contentType) {
+    frontmatterLines.push(`contentType: ${JSON.stringify(note.contentType)}`);
+  }
+  if (typeof note.pinned === "boolean") {
+    frontmatterLines.push(`pinned: ${note.pinned}`);
+  }
+  if (note.section) {
+    frontmatterLines.push(`section: ${JSON.stringify(note.section)}`);
+  }
 
-  lines.push("---");
-  lines.push("");
-  lines.push(note.body || "");
+  frontmatterLines.push("---", "");
+  const body = note.body ? note.body.trim() : "";
 
-  return lines.join("\n");
+  return frontmatterLines.join("\n") + body + "\n";
 }
 
+// Backward compatibility alias
+export const formatNoteAsMarkdownString = formatNoteToMarkdown;
+
+// CRC-32 Table for standard zip checksums
+function makeCrcTable(): Uint32Array {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c;
+  }
+  return table;
+}
+
+const CRC_TABLE = makeCrcTable();
+
+function calculateCrc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ bytes[i]) & 0xff];
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
+ * Zero-dependency standard PKZIP archive generator.
+ * Emits an uncompressed (Store) ZIP Blob compatible with all major OS zip tools.
+ */
+export function createZipArchive(
+  files: Array<{ name: string; content: string }>,
+): Blob {
+  const encoder = new TextEncoder();
+  const localChunks: Uint8Array[] = [];
+  const centralChunks: Uint8Array[] = [];
+
+  let offset = 0;
+  const now = new Date();
+  const dosTime =
+    ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+  const dosDate =
+    (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+
+  for (const file of files) {
+    const filenameBytes = encoder.encode(file.name);
+    const dataBytes = encoder.encode(file.content);
+    const crc = calculateCrc32(dataBytes);
+    const size = dataBytes.length;
+
+    // 1. Local File Header (30 bytes + name + data)
+    const localHeader = new Uint8Array(30 + filenameBytes.length);
+    const lv = new DataView(localHeader.buffer);
+    lv.setUint32(0, 0x04034b50, true); // Local header signature
+    lv.setUint16(4, 20, true); // Version needed to extract (2.0)
+    lv.setUint16(6, 0x0800, true); // Bit flag (0x0800 = UTF-8 filenames)
+    lv.setUint16(8, 0, true); // Compression method: 0 (Store)
+    lv.setUint16(10, dosTime, true);
+    lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true); // Compressed size
+    lv.setUint32(22, size, true); // Uncompressed size
+    lv.setUint16(26, filenameBytes.length, true);
+    lv.setUint16(28, 0, true); // Extra field length
+    localHeader.set(filenameBytes, 30);
+
+    localChunks.push(localHeader);
+    localChunks.push(dataBytes);
+
+    // 2. Central Directory Header (46 bytes + name)
+    const cdHeader = new Uint8Array(46 + filenameBytes.length);
+    const cv = new DataView(cdHeader.buffer);
+    cv.setUint32(0, 0x02014b50, true); // Central header signature
+    cv.setUint16(4, 20, true); // Version made by
+    cv.setUint16(6, 20, true); // Version needed to extract
+    cv.setUint16(8, 0x0800, true); // Bit flag: UTF-8
+    cv.setUint16(10, 0, true); // Compression method: Store
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, filenameBytes.length, true);
+    cv.setUint16(30, 0, true); // Extra field length
+    cv.setUint16(32, 0, true); // Comment length
+    cv.setUint16(34, 0, true); // Disk number start
+    cv.setUint16(36, 0, true); // Internal attributes
+    cv.setUint32(38, 0, true); // External attributes
+    cv.setUint32(42, offset, true); // Relative offset of local header
+    cdHeader.set(filenameBytes, 46);
+
+    centralChunks.push(cdHeader);
+
+    offset += localHeader.length + dataBytes.length;
+  }
+
+  const centralDirOffset = offset;
+  let centralDirSize = 0;
+  for (const chunk of centralChunks) {
+    centralDirSize += chunk.length;
+  }
+
+  // 3. End of Central Directory Record (22 bytes)
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true); // EOCD signature
+  ev.setUint16(4, 0, true); // Disk number
+  ev.setUint16(6, 0, true); // Disk with central directory
+  ev.setUint16(8, files.length, true); // Total entries on this disk
+  ev.setUint16(10, files.length, true); // Total entries
+  ev.setUint32(12, centralDirSize, true); // Size of central directory
+  ev.setUint32(16, centralDirOffset, true); // Offset of start of central directory
+  ev.setUint16(20, 0, true); // ZIP comment length
+
+  return new Blob([...localChunks, ...centralChunks, eocd] as BlobPart[], {
+    type: "application/zip",
+  });
+}
+
+function triggerBrowserDownload(blob: Blob, fileName: string): void {
+  if (typeof window === "undefined") return;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/**
+ * Triggers a browser download of selected notes.
+ * If 1 note is given: downloads a single `.md` file.
+ * If multiple notes: bundles them into a clean `.zip` archive.
+ */
+export async function exportNotesAsFiles(notes: Note[]): Promise<void> {
+  if (notes.length === 0) return;
+
+  if (notes.length === 1) {
+    exportNoteAsMarkdown(notes[0]);
+    return;
+  }
+
+  // Deduplicate file names if notes have identical titles
+  const seenNames = new Map<string, number>();
+  const files: Array<{ name: string; content: string }> = [];
+
+  for (const note of notes) {
+    const baseName = sanitizeFileName(note.title);
+    const count = seenNames.get(baseName) || 0;
+    seenNames.set(baseName, count + 1);
+
+    const fileName = count > 0 ? `${baseName}-${count + 1}.md` : `${baseName}.md`;
+    files.push({
+      name: fileName,
+      content: formatNoteToMarkdown(note),
+    });
+  }
+
+  const zipBlob = createZipArchive(files);
+  triggerBrowserDownload(zipBlob, `wasl-notes-export-${new Date().toISOString().slice(0, 10)}.zip`);
+}
+
+/**
+ * Single note markdown export function.
+ */
 export function exportNoteAsMarkdown(note: Note): void {
   if (typeof window === "undefined") return;
 
-  const content = formatNoteAsMarkdownString(note);
+  const content = formatNoteToMarkdown(note);
   const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  const sanitizedTitle = (note.title || "note").replace(/[/\\?%*:|"<>]/g, "-").trim();
-
-  a.href = url;
-  a.download = `${sanitizedTitle || "note"}.md`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const sanitizedTitle = sanitizeFileName(note.title);
+  triggerBrowserDownload(blob, `${sanitizedTitle}.md`);
 }
 
 function escapeHtml(text: string): string {
@@ -59,9 +239,10 @@ export function renderMarkdownToCleanHtml(markdown: string): string {
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
+    const trimmed = rawLine.trim();
 
     // Code blocks
-    if (rawLine.trim().startsWith("```")) {
+    if (trimmed.startsWith("```")) {
       if (inCodeBlock) {
         htmlChunks.push(`<pre><code>${escapeHtml(codeBlockContent.join("\n"))}</code></pre>`);
         codeBlockContent = [];
@@ -79,28 +260,18 @@ export function renderMarkdownToCleanHtml(markdown: string): string {
       continue;
     }
 
-    const trimmed = rawLine.trim();
-
+    // Blank line
     if (!trimmed) {
       if (inList) { htmlChunks.push("</ul>"); inList = false; }
       if (inNumberedList) { htmlChunks.push("</ol>"); inNumberedList = false; }
       continue;
     }
 
-    // Format inline markdown (bold, italic, code, links)
-    const formatInline = (str: string) => {
-      let res = escapeHtml(str);
-      // Bold + Italic
-      res = res.replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>");
-      // Bold
+    const formatInline = (text: string) => {
+      let res = escapeHtml(text);
       res = res.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-      res = res.replace(/__(.*?)__/g, "<strong>$1</strong>");
-      // Italic
       res = res.replace(/\*(.*?)\*/g, "<em>$1</em>");
-      res = res.replace(/_(.*?)_/g, "<em>$1</em>");
-      // Inline Code
       res = res.replace(/`([^`]+)`/g, "<code>$1</code>");
-      // Links
       res = res.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
       return res;
     };

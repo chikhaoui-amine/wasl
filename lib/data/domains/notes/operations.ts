@@ -189,6 +189,34 @@ export function deleteNoteOperation(
   };
 }
 
+export function deleteNotesOperation(
+  current: NotesPersistedState | null | undefined,
+  ids: string[],
+): NotesPersistedState {
+  const base = normalizeNotesState(current);
+  const idSet = new Set(ids);
+  return {
+    ...base,
+    notes: base.notes.filter((n) => !idSet.has(n.id)),
+  };
+}
+
+export function moveNotesToCategoryOperation(
+  current: NotesPersistedState | null | undefined,
+  ids: string[],
+  targetCategory: string,
+  now: number = Date.now(),
+): NotesPersistedState {
+  const base = normalizeNotesState(current);
+  const idSet = new Set(ids);
+  return {
+    ...base,
+    notes: base.notes.map((n) =>
+      idSet.has(n.id) ? { ...n, tag: targetCategory, updatedAt: now } : n,
+    ),
+  };
+}
+
 export function addCategoryOperation(
   current: NotesPersistedState | null | undefined,
   category: NoteCategory,

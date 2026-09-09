@@ -1,67 +1,62 @@
 import { describe, it, expect } from "vitest";
-import { formatNoteAsMarkdownString, renderMarkdownToCleanHtml } from "./notes-export";
+import { formatNoteToMarkdown, createZipArchive, sanitizeFileName } from "./notes-export";
+import { parseMarkdownNote } from "./notes-import";
 import type { Note } from "./data/domains/notes";
 
-const sampleNote: Note = {
-  id: "n-123",
-  title: "Architecture Decisions",
-  body: "## Context\nWe decided to use client-side rendering.",
-  tag: "Engineering",
-  author: "Amine",
-  sourceUrl: "https://wasl.app",
-  contentType: "read",
-  pinned: true,
-  updatedAt: 1700000000000,
-};
-
-describe("notes-export", () => {
-  it("formats note with YAML frontmatter and body", () => {
-    const md = formatNoteAsMarkdownString(sampleNote);
-    expect(md).toContain("---");
-    expect(md).toContain('title: "Architecture Decisions"');
-    expect(md).toContain('tag: "Engineering"');
-    expect(md).toContain('author: "Amine"');
-    expect(md).toContain('sourceUrl: "https://wasl.app"');
-    expect(md).toContain('contentType: "read"');
-    expect(md).toContain("## Context\nWe decided to use client-side rendering.");
+describe("Notes Export Utility", () => {
+  it("sanitizes file names for cross-platform file systems", () => {
+    expect(sanitizeFileName("Hello / World : Test?")).toBe("Hello - World - Test");
+    expect(sanitizeFileName("")).toBe("untitled-note");
   });
 
-  it("handles notes with minimal fields", () => {
-    const minimalNote: Note = {
-      id: "n-456",
-      title: "Quick Thought",
-      body: "Just an idea.",
-      tag: "General",
-      pinned: false,
-      updatedAt: 1700000000000,
+  it("formats note to markdown frontmatter symmetrically with import parser", () => {
+    const note: Note = {
+      id: "test-id",
+      title: "My Grand Strategy",
+      body: "Execute step by step.",
+      tag: "Strategy",
+      author: "Amine",
+      sourceUrl: "https://example.com/strategy",
+      contentType: "idea",
+      pinned: true,
+      updatedAt: 1725888000000,
     };
-    const md = formatNoteAsMarkdownString(minimalNote);
-    expect(md).toContain('title: "Quick Thought"');
-    expect(md).toContain("Just an idea.");
+
+    const md = formatNoteToMarkdown(note);
+    expect(md).toContain('title: "My Grand Strategy"');
+    expect(md).toContain('tag: "Strategy"');
+    expect(md).toContain('author: "Amine"');
+    expect(md).toContain('sourceUrl: "https://example.com/strategy"');
+    expect(md).toContain('contentType: "idea"');
+    expect(md).toContain("pinned: true");
+    expect(md).toContain("Execute step by step.");
+
+    // Symmetrical verification with parseMarkdownNote
+    const parsed = parseMarkdownNote(md, "test.md");
+    expect(parsed.title).toBe(note.title);
+    expect(parsed.tag).toBe(note.tag);
+    expect(parsed.author).toBe(note.author);
+    expect(parsed.sourceUrl).toBe(note.sourceUrl);
+    expect(parsed.contentType).toBe(note.contentType);
+    expect(parsed.pinned).toBe(note.pinned);
+    expect(parsed.body).toBe(note.body);
   });
 
-  it("renders markdown to clean HTML for PDF document", () => {
-    const rawMarkdown = `## Overview
-- First item
-- Second item with **bold text**
+  it("creates a valid zip archive buffer with valid PK headers for multiple files", async () => {
+    const files = [
+      { name: "note-1.md", content: "# Note 1\nHello" },
+      { name: "note-2.md", content: "# Note 2\nWorld" },
+    ];
+    const zipBlob = createZipArchive(files);
+    expect(zipBlob).toBeInstanceOf(Blob);
+    expect(zipBlob.size).toBeGreaterThan(100);
 
-1. Step one
-2. Step two
-
-> Useful tip
-
-\`\`\`js
-console.log("hello");
-\`\`\`
-`;
-    const html = renderMarkdownToCleanHtml(rawMarkdown);
-    expect(html).toContain("<h2>Overview</h2>");
-    expect(html).toContain("<ul>");
-    expect(html).toContain("<li>First item</li>");
-    expect(html).toContain("<strong>bold text</strong>");
-    expect(html).toContain("<ol>");
-    expect(html).toContain("<li>Step one</li>");
-    expect(html).toContain("<blockquote>Useful tip</blockquote>");
-    expect(html).toContain("<pre><code>console.log(&quot;hello&quot;);</code></pre>");
+    const buffer = await zipBlob.arrayBuffer();
+    const view = new Uint8Array(buffer);
+    // Local header signature: PK\x03\x04
+    expect(view[0]).toBe(0x50);
+    expect(view[1]).toBe(0x4b);
+    expect(view[2]).toBe(0x03);
+    expect(view[3]).toBe(0x04);
   });
 });

@@ -35,6 +35,8 @@ import {
   updateNoteOperation,
   togglePinOperation,
   deleteNoteOperation,
+  deleteNotesOperation,
+  moveNotesToCategoryOperation,
   addCategoryOperation,
   updateCategoryOperation,
   deleteCategoryOperation,
@@ -89,6 +91,38 @@ describe("Notes Domain — Pure Operations", () => {
 
     const deleted = deleteNoteOperation(updated, "note-1");
     expect(deleted.notes.length).toBe(0);
+  });
+
+  it("deletes multiple notes in a single pure operation", () => {
+    const initial: NotesPersistedState = {
+      notes: [
+        { id: "note-1", title: "Note 1", body: "text", tag: "Idea", pinned: false, updatedAt: 1000 },
+        { id: "note-2", title: "Note 2", body: "text", tag: "Idea", pinned: false, updatedAt: 1000 },
+        { id: "note-3", title: "Note 3", body: "text", tag: "Personal", pinned: false, updatedAt: 1000 },
+      ],
+      categories: DEFAULT_CATEGORIES,
+    };
+
+    const next = deleteNotesOperation(initial, ["note-1", "note-3"]);
+    expect(next.notes.length).toBe(1);
+    expect(next.notes[0].id).toBe("note-2");
+  });
+
+  it("moves multiple notes to a new category in a single pure operation", () => {
+    const initial: NotesPersistedState = {
+      notes: [
+        { id: "note-1", title: "Note 1", body: "text", tag: "Idea", pinned: false, updatedAt: 1000 },
+        { id: "note-2", title: "Note 2", body: "text", tag: "Idea", pinned: false, updatedAt: 1000 },
+        { id: "note-3", title: "Note 3", body: "text", tag: "Personal", pinned: false, updatedAt: 1000 },
+      ],
+      categories: DEFAULT_CATEGORIES,
+    };
+
+    const next = moveNotesToCategoryOperation(initial, ["note-1", "note-2"], "Work", 2000);
+    expect(next.notes.find((n) => n.id === "note-1")?.tag).toBe("Work");
+    expect(next.notes.find((n) => n.id === "note-1")?.updatedAt).toBe(2000);
+    expect(next.notes.find((n) => n.id === "note-2")?.tag).toBe("Work");
+    expect(next.notes.find((n) => n.id === "note-3")?.tag).toBe("Personal");
   });
 
   it("handles category management and fallback on category deletion", () => {
@@ -402,5 +436,51 @@ describe("Notes Domain — Adapter Integration, Serialization & Trash Bridge", (
     // Stored Dexie snapshot must match final serialized version
     const stored = await localAdapter.getStore("lifeos-notes");
     expect(stored?.state.notes[0].body).toBe("Draft v5 final");
+  });
+
+  it("bulk-deletes multiple notes via deleteNotes and transfers all to Trash", async () => {
+    const { result } = renderHook(() => useNotesData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let noteA!: Note;
+    let noteB!: Note;
+    await act(async () => {
+      noteA = await result.current.addNote({ title: "To Delete A", body: "1", tag: "Idea" });
+      noteB = await result.current.addNote({ title: "To Delete B", body: "2", tag: "Idea" });
+    });
+
+    await waitFor(() => expect(result.current.notes.length).toBe(2));
+
+    await act(async () => {
+      await (result.current as any).deleteNotes([noteA.id, noteB.id]);
+    });
+
+    await waitFor(() => expect(result.current.notes.length).toBe(0));
+
+    const trashDoc = await localAdapter.getStore("lifeos-trash");
+    const trashItems = trashDoc?.state?.items || [];
+    expect(trashItems.some((i: any) => i.id === `trash-note-${noteA.id}`)).toBe(true);
+    expect(trashItems.some((i: any) => i.id === `trash-note-${noteB.id}`)).toBe(true);
+  });
+
+  it("moves multiple notes to a category via moveNotesToCategory", async () => {
+    const { result } = renderHook(() => useNotesData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let noteA!: Note;
+    let noteB!: Note;
+    await act(async () => {
+      noteA = await result.current.addNote({ title: "Cat A", body: "1", tag: "Idea" });
+      noteB = await result.current.addNote({ title: "Cat B", body: "2", tag: "Idea" });
+    });
+
+    await act(async () => {
+      await (result.current as any).moveNotesToCategory([noteA.id, noteB.id], "Projects");
+    });
+
+    await waitFor(() => {
+      expect(result.current.notes.find((n) => n.id === noteA.id)?.tag).toBe("Projects");
+      expect(result.current.notes.find((n) => n.id === noteB.id)?.tag).toBe("Projects");
+    });
   });
 });

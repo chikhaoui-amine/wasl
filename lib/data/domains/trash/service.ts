@@ -63,6 +63,63 @@ export async function deleteEntityWithTrash(
   return trashItem;
 }
 
+export interface BulkTrashItemOption {
+  itemType: TrashItemType;
+  entity: { id: string; title?: string };
+  title?: string;
+  description?: string;
+  originalStoreKey: string;
+}
+
+/**
+ * Executes a safe, two-step bulk deletion:
+ * 1. Writes all entities to lifeos-trash first in a single store mutation.
+ * 2. Deletes entities from the source store only after Trash write succeeds.
+ *
+ * If Trash write fails, the source entities are untouched and preserved.
+ * If source deletion fails after Trash succeeds, duplicates remain safely in Trash.
+ */
+export async function deleteEntitiesWithTrash(
+  adapter: DataAdapter,
+  options: {
+    items: BulkTrashItemOption[];
+    deleteFromSource: (adapter: DataAdapter) => Promise<void>;
+  },
+): Promise<TrashItem[]> {
+  if (options.items.length === 0) {
+    return [];
+  }
+
+  const nowIso = new Date().toISOString();
+  const trashItems: TrashItem[] = options.items.map((opt) => {
+    const stableTrashId = `trash-${opt.itemType}-${opt.entity.id}`;
+    const title = opt.title || (typeof opt.entity.title === "string" ? opt.entity.title : "Untitled");
+    return {
+      id: stableTrashId,
+      itemType: opt.itemType,
+      title,
+      description: opt.description,
+      itemData: opt.entity,
+      deletedAt: nowIso,
+      originalStoreKey: opt.originalStoreKey,
+    };
+  });
+
+  // Step 1: Write all items to Trash store in a single mutation
+  await adapter.mutateStore("lifeos-trash", (prev) => {
+    let base = normalizeTrashState(prev);
+    for (const item of trashItems) {
+      base = moveToTrashOperation(base, item);
+    }
+    return base;
+  });
+
+  // Step 2: Delete from source store only after Trash succeeds
+  await options.deleteFromSource(adapter);
+
+  return trashItems;
+}
+
 /**
  * Executes a safe, two-step restoration:
  * 1. Restores the entity to its destination store first (verifying no conflicting ID already exists).

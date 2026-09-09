@@ -36,6 +36,7 @@ import {
   CURRENT_TRASH_VERSION,
   migrateTrashSnapshot,
   deleteEntityWithTrash,
+  deleteEntitiesWithTrash,
   restoreEntityFromTrash,
   restoreDefaultProgramsService,
   TrashConflictError,
@@ -235,6 +236,40 @@ describe("Trash Domain — Cross-Domain Orchestration Service", () => {
     const items = trashDoc?.state.items as TrashItem[];
     expect(items.length).toBe(6);
     expect(items.map((i) => i.itemType).sort()).toEqual(["goal", "habit", "note", "program", "task", "workout"].sort());
+  });
+
+  it("safely bulk-deletes multiple entities with two-phase trash insertion", async () => {
+    let sourceDeleted = false;
+    const items = [
+      {
+        itemType: "note" as const,
+        entity: { id: "note-b1", title: "Bulk 1" },
+        title: "Bulk 1",
+        description: "Desc 1",
+        originalStoreKey: "lifeos-notes",
+      },
+      {
+        itemType: "note" as const,
+        entity: { id: "note-b2", title: "Bulk 2" },
+        title: "Bulk 2",
+        description: "Desc 2",
+        originalStoreKey: "lifeos-notes",
+      },
+    ];
+
+    const trashed = await deleteEntitiesWithTrash(localAdapter, {
+      items,
+      deleteFromSource: async () => {
+        sourceDeleted = true;
+      },
+    });
+
+    expect(trashed.length).toBe(2);
+    expect(sourceDeleted).toBe(true);
+
+    const trashDoc = await localAdapter.getStore("lifeos-trash");
+    expect(trashDoc?.state.items.some((i: any) => i.id === "trash-note-note-b1")).toBe(true);
+    expect(trashDoc?.state.items.some((i: any) => i.id === "trash-note-note-b2")).toBe(true);
   });
 
   it("aborts deletion and preserves source entity if Trash write fails", async () => {
