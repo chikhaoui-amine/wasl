@@ -97,8 +97,10 @@ export interface ActiveWorkout {
   sessionId?: string;
   sessionTitle: string;
   sport: string;
+  date?: string;
   startTime: number;
   elapsedSec: number;
+  manualDurationMinutes?: number;
   isPaused: boolean;
   lastTickAt: number;
   restTimerSec: number | null;

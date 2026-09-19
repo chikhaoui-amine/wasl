@@ -1,21 +1,24 @@
 "use client";
 
-import { Dumbbell, Layers, Play, Plus, Sparkles, ChevronRight, Zap, Footprints, Droplet, Flame } from "lucide-react";
+import { Dumbbell, Layers, Play, Plus, Sparkles, ChevronRight, Zap, Footprints, Droplet, Flame, Calendar } from "lucide-react";
 import { useHealthData, type ProgramSession, type WorkoutProgram } from "@/lib/data/domains/health";
 import { Modal } from "@/components/ui/Modal";
+import { addDays, relLabel, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 interface ProgramPickerModalProps {
   open: boolean;
   sport?: string;
+  date?: string;
   onClose: () => void;
-  onSelectSession: (session?: ProgramSession, sportOverride?: string) => void;
+  onSelectSession: (session?: ProgramSession, sportOverride?: string, dateOverride?: string) => void;
   onCreateProgramClick?: () => void;
 }
 
 export function ProgramPickerModal({
   open,
   sport,
+  date,
   onClose,
   onSelectSession,
   onCreateProgramClick,
@@ -49,6 +52,15 @@ export function ProgramPickerModal({
       }
     >
       <div className="space-y-4">
+        {date && date !== todayISO() && (
+          <div className="flex items-center gap-2 rounded-xl bg-accent/15 border border-accent/30 p-2.5 text-xs text-accent">
+            <Calendar className="h-4 w-4 shrink-0" />
+            <span>
+              Logging session for <strong className="text-text font-bold">{relLabel(date)}</strong> ({date})
+            </span>
+          </div>
+        )}
+
         {/* Quick Custom Workout Option */}
         <div className="rounded-xl border border-accent/40 bg-accent/10 p-3 sm:p-3.5 space-y-2">
           <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2.5">
@@ -60,7 +72,7 @@ export function ProgramPickerModal({
             </div>
             <button
               onClick={() => {
-                onSelectSession(undefined, selectedSport);
+                onSelectSession(undefined, selectedSport, date);
                 onClose();
               }}
               className="btn-hero flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-bold self-start xs:self-auto shrink-0"
@@ -106,7 +118,7 @@ export function ProgramPickerModal({
                         </div>
                         <button
                           onClick={() => {
-                            onSelectSession(sess);
+                            onSelectSession(sess, undefined, date);
                             onClose();
                           }}
                           className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[11px] font-bold text-accent-fg hover:opacity-90 transition-opacity"
@@ -146,7 +158,7 @@ export function ProgramPickerModal({
                         <span className="font-medium text-text">{sess.name}</span>
                         <button
                           onClick={() => {
-                            onSelectSession(sess);
+                            onSelectSession(sess, undefined, date);
                             onClose();
                           }}
                           className="flex items-center gap-1 text-[11px] font-bold text-accent hover:underline"

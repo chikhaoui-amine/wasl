@@ -71,6 +71,7 @@ export default function HealthPage() {
   // Program picker state
   const [isProgramPickerOpen, setIsProgramPickerOpen] = useState(false);
   const [pickerSport, setPickerSport] = useState<string>("Gym");
+  const [pickerDate, setPickerDate] = useState<string | undefined>();
 
   const today = day();
   const weekAct = thisWeekActivity(workouts);
@@ -78,13 +79,14 @@ export default function HealthPage() {
   const latestWeight = weights.at(-1)?.value;
 
   // Handler to launch active session or quick workout
-  const handleStartWorkout = (session?: ProgramSession, sport?: string) => {
-    startActiveWorkout(session, sport);
+  const handleStartWorkout = (session?: ProgramSession, sport?: string, date?: string) => {
+    startActiveWorkout(session, sport, date || pickerDate);
   };
 
   // Handler when clicking quick sport buttons
   const handleQuickSportClick = (sport: string) => {
     setPickerSport(sport);
+    setPickerDate(undefined);
     setIsProgramPickerOpen(true);
   };
 
@@ -263,7 +265,13 @@ export default function HealthPage() {
             </div>
 
             {/* Training Calendar Grid with interactive day selection and organized workout history */}
-            <TrainingCalendar onStartWorkoutClick={() => setIsProgramPickerOpen(true)} />
+            <TrainingCalendar
+              onStartWorkoutClick={(sport, date) => {
+                if (sport) setPickerSport(sport);
+                setPickerDate(date);
+                setIsProgramPickerOpen(true);
+              }}
+            />
           </div>
         )}
 
@@ -410,8 +418,11 @@ export default function HealthPage() {
       <ProgramPickerModal
         open={isProgramPickerOpen}
         sport={pickerSport}
+        date={pickerDate}
         onClose={() => setIsProgramPickerOpen(false)}
-        onSelectSession={(sess, sportOverride) => handleStartWorkout(sess, sportOverride)}
+        onSelectSession={(sess, sportOverride, dateOverride) =>
+          handleStartWorkout(sess, sportOverride, dateOverride)
+        }
         onCreateProgramClick={() => {
           setEditingProgram(undefined);
           setIsProgramEditorOpen(true);

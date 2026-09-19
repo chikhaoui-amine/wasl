@@ -29,7 +29,7 @@ import { addDays, fromISO, relLabel, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 interface TrainingCalendarProps {
-  onStartWorkoutClick?: (sport?: string) => void;
+  onStartWorkoutClick?: (sport?: string, date?: string) => void;
 }
 
 export function TrainingCalendar({ onStartWorkoutClick }: TrainingCalendarProps) {
@@ -261,7 +261,7 @@ export function TrainingCalendar({ onStartWorkoutClick }: TrainingCalendarProps)
             )}
             {onStartWorkoutClick && (
               <button
-                onClick={() => onStartWorkoutClick()}
+                onClick={() => onStartWorkoutClick(undefined, selectedDate)}
                 className="flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-accent-fg shadow-sm hover:brightness-110 transition"
               >
                 <Plus className="h-3.5 w-3.5" /> Log Workout

@@ -303,4 +303,34 @@ describe("Health Domain — Adapter Integration & Parity", () => {
     expect(createdWorkout!.id.length).toBeGreaterThan(0);
     await waitFor(() => expect(result.current.workouts.some((w) => w.id === createdWorkout?.id)).toBe(true));
   });
+
+  it("supports starting and finishing a workout with a past date and manual duration", async () => {
+    const { result } = renderHook(() => useHealthData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Start a workout backdated to 2026-09-10 with 50 minutes manual duration
+    await act(async () => {
+      await result.current.startActiveWorkout(undefined, "Calisthenics", "2026-09-10", 50);
+    });
+
+    await waitFor(() => expect(result.current.activeWorkout).not.toBeNull());
+    expect(result.current.activeWorkout?.date).toBe("2026-09-10");
+    expect(result.current.activeWorkout?.manualDurationMinutes).toBe(50);
+    expect(result.current.activeWorkout?.isPaused).toBe(true); // Auto-paused for past workouts
+
+    // Finish the workout
+    let finishResult: { workout: unknown; newPRs: string[] } | undefined;
+    await act(async () => {
+      finishResult = await result.current.finishActiveWorkout();
+    });
+
+    await waitFor(() => expect(result.current.activeWorkout).toBeNull());
+    const finishedWorkout = finishResult?.workout as { date: string; minutes: number; sport: string };
+    expect(finishedWorkout.date).toBe("2026-09-10");
+    expect(finishedWorkout.minutes).toBe(50);
+    expect(finishedWorkout.sport).toBe("Calisthenics");
+
+    // Also verify it exists in the workouts array
+    expect(result.current.workouts.some((w) => w.date === "2026-09-10" && w.minutes === 50)).toBe(true);
+  });
 });

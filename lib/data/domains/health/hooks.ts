@@ -188,10 +188,18 @@ export function useHealthData() {
     await mutation.mutateAsync((current) => setActiveProgramOperation(current, id));
   };
 
-  const startActiveWorkout = async (session?: ProgramSession, sportOverride?: string): Promise<ActiveWorkout> => {
+  const startActiveWorkout = async (
+    session?: ProgramSession,
+    sportOverride?: string,
+    dateOverride?: string,
+    manualDurationMinutes?: number,
+  ): Promise<ActiveWorkout> => {
     const sport = session?.sport || sportOverride || "Gym";
     const sessionTitle = session?.name || `${sport} Session`;
     const now = Date.now();
+    const date = dateOverride || todayISO();
+    const isPast = date < todayISO();
+    const resolvedMinutes = manualDurationMinutes ?? (isPast ? 45 : undefined);
 
     let initialExercises: LoggedExercise[] = [];
     if (session && session.exercises && session.exercises.length > 0) {
@@ -255,9 +263,11 @@ export function useHealthData() {
       sessionId: session?.id,
       sessionTitle,
       sport,
+      date,
       startTime: now,
-      elapsedSec: 0,
-      isPaused: false,
+      elapsedSec: resolvedMinutes ? resolvedMinutes * 60 : 0,
+      manualDurationMinutes: resolvedMinutes,
+      isPaused: isPast,
       lastTickAt: now,
       restTimerSec: null,
       restTimerTarget: null,
@@ -379,13 +389,16 @@ export function useHealthData() {
       throw new Error("No active workout to finish.");
     }
     const { elapsedSec } = getDisplayedWorkoutSeconds(activeWorkout);
-    const minutes = Math.max(1, Math.round(elapsedSec / 60));
+    const minutes =
+      typeof activeWorkout.manualDurationMinutes === "number" && activeWorkout.manualDurationMinutes > 0
+        ? activeWorkout.manualDurationMinutes
+        : Math.max(1, Math.round(elapsedSec / 60));
 
     // Pre-calculate PRs and metrics
     const newPRsEarned: string[] = [];
     const newWorkout: Workout = {
       id: crypto.randomUUID(),
-      date: todayISO(),
+      date: activeWorkout.date || todayISO(),
       sport: activeWorkout.sport,
       minutes,
       intensity: "moderate",

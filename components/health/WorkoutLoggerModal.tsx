@@ -17,6 +17,7 @@ import {
   Droplet,
   Flame,
   Activity,
+  ChevronLeft,
   ChevronRight,
   Minimize2,
   Maximize2,
@@ -24,7 +25,10 @@ import {
   Calculator,
   FlameKindling,
   SlidersHorizontal,
+  Calendar,
+  Pencil,
 } from "lucide-react";
+import { todayISO, addDays, relLabel } from "@/lib/date";
 import {
   useHealthData,
   getExerciseTrackingMode,
@@ -117,6 +121,8 @@ export function WorkoutLoggerModal({ open: propsOpen, session, sportOverride, on
   const [plateCalcTargetWeight, setPlateCalcTargetWeight] = useState<number | null>(null);
   const [barWeight, setBarWeight] = useState<number>(20);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [tempDuration, setTempDuration] = useState("");
 
   if (!activeWorkout || activeWorkout.isMinimized) {
     // If PRs summary is active even after workout finished, show celebration
@@ -159,6 +165,39 @@ export function WorkoutLoggerModal({ open: propsOpen, session, sportOverride, on
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const workoutDate = activeWorkout.date || todayISO();
+  const isPastWorkout = workoutDate < todayISO();
+
+  const handleDateChange = (newDate: string) => {
+    if (!newDate || newDate > todayISO()) return;
+    const isNowPast = newDate < todayISO();
+    const patch: Partial<typeof activeWorkout> = { date: newDate };
+    if (isNowPast && activeWorkout.manualDurationMinutes === undefined) {
+      patch.manualDurationMinutes = 45;
+      patch.elapsedSec = 45 * 60;
+      patch.isPaused = true;
+    }
+    updateActiveWorkout(patch);
+  };
+
+  const startEditingDuration = () => {
+    const currentMinutes = activeWorkout.manualDurationMinutes ?? Math.max(1, Math.round(elapsedSec / 60));
+    setTempDuration(String(currentMinutes));
+    setIsEditingDuration(true);
+  };
+
+  const commitDuration = () => {
+    setIsEditingDuration(false);
+    const parsed = parseInt(tempDuration, 10);
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 600) {
+      updateActiveWorkout({
+        manualDurationMinutes: parsed,
+        elapsedSec: parsed * 60,
+        isPaused: true,
+      });
+    }
   };
 
   // Previous performance lookup
@@ -386,24 +425,98 @@ export function WorkoutLoggerModal({ open: propsOpen, session, sportOverride, on
 
             {/* Header Right Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* Desktop Live Stopwatch with Pause/Resume */}
-              <div className="hidden sm:flex items-center gap-2 rounded-xl bg-surface-1 border border-border px-3 py-1.5 shadow-sm">
-                <div className="flex items-center gap-1.5 font-mono text-sm sm:text-base font-bold text-text">
-                  <Clock className="h-4 w-4 text-accent animate-pulse" />
-                  <span>{fmtTimer(elapsedSec)}</span>
-                </div>
+              {/* Desktop Date Switcher */}
+              <div className="hidden sm:flex items-center rounded-xl bg-surface-1 border border-border px-1 py-0.5 shadow-sm">
                 <button
                   type="button"
-                  onClick={() => (activeWorkout.isPaused ? resumeActiveWorkout() : pauseActiveWorkout())}
-                  className="grid h-6 w-6 place-items-center rounded-md text-faint hover:text-text hover:bg-surface-hover"
-                  title={activeWorkout.isPaused ? "Resume Timer" : "Pause Timer"}
+                  onClick={() => handleDateChange(addDays(workoutDate, -1))}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-text hover:bg-surface-hover transition-colors"
+                  title="Previous day"
                 >
-                  {activeWorkout.isPaused ? (
-                    <Play className="h-3.5 w-3.5 text-emerald-400 fill-current" />
-                  ) : (
-                    <Pause className="h-3.5 w-3.5 text-accent" />
-                  )}
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
+                <label
+                  className="relative flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded-lg text-xs font-semibold text-text hover:text-accent hover:bg-surface-hover transition-colors"
+                  title="Change workout date"
+                >
+                  <Calendar className={cn("h-3.5 w-3.5", isPastWorkout ? "text-amber-400" : "text-accent")} />
+                  <span className={cn(isPastWorkout && "text-amber-400 font-medium")}>{relLabel(workoutDate)}</span>
+                  <input
+                    type="date"
+                    value={workoutDate}
+                    max={todayISO()}
+                    onChange={(e) => {
+                      if (e.target.value) handleDateChange(e.target.value);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={workoutDate >= todayISO()}
+                  onClick={() => handleDateChange(addDays(workoutDate, 1))}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-faint hover:text-text hover:bg-surface-hover disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                  title="Next day"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Desktop Live Stopwatch with Manual Duration Edit & Pause/Resume */}
+              <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-surface-1 border border-border px-2.5 py-1.5 shadow-sm">
+                {isEditingDuration ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      commitDuration();
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <input
+                      type="number"
+                      min="1"
+                      max="600"
+                      value={tempDuration}
+                      onChange={(e) => setTempDuration(e.target.value)}
+                      onBlur={commitDuration}
+                      autoFocus
+                      className="w-14 rounded-md bg-surface-2 border border-accent/40 px-1.5 py-0.5 text-xs sm:text-sm font-mono font-bold text-text text-center focus:outline-hidden"
+                    />
+                    <span className="text-xs text-muted font-medium">min</span>
+                    <button
+                      type="submit"
+                      className="grid h-5 w-5 place-items-center rounded bg-accent/20 text-accent hover:bg-accent hover:text-accent-fg"
+                      title="Apply duration"
+                    >
+                      <Check className="h-3 w-3" />
+                    </button>
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={startEditingDuration}
+                      className="flex items-center gap-1.5 font-mono text-sm sm:text-base font-bold text-text hover:text-accent transition-colors group"
+                      title="Click to edit duration in minutes"
+                    >
+                      <Clock className={cn("h-4 w-4 text-accent", !activeWorkout.isPaused && "animate-pulse")} />
+                      <span>{fmtTimer(elapsedSec)}</span>
+                      <Pencil className="h-3 w-3 text-faint group-hover:text-accent transition-colors" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => (activeWorkout.isPaused ? resumeActiveWorkout() : pauseActiveWorkout())}
+                      className="grid h-6 w-6 place-items-center rounded-md text-faint hover:text-text hover:bg-surface-hover ml-1"
+                      title={activeWorkout.isPaused ? "Resume Timer" : "Pause Timer"}
+                    >
+                      {activeWorkout.isPaused ? (
+                        <Play className="h-3.5 w-3.5 text-emerald-400 fill-current" />
+                      ) : (
+                        <Pause className="h-3.5 w-3.5 text-accent" />
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Fullscreen (Desktop only) */}
@@ -452,33 +565,103 @@ export function WorkoutLoggerModal({ open: propsOpen, session, sportOverride, on
             </div>
           </div>
 
-          {/* Mobile Second Row: Live Timer + Mobile Finish CTA */}
-          <div className="flex sm:hidden items-center justify-between gap-2 pt-1.5 border-t border-border/40">
-            <div className="flex items-center gap-2 rounded-lg bg-surface-1 border border-border px-2.5 py-1 shadow-xs">
-              <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-text">
-                <Clock className="h-3.5 w-3.5 text-accent animate-pulse" />
-                <span>{fmtTimer(elapsedSec)}</span>
+          {/* Mobile Second Row: Date Switcher + Timer / Duration + Mobile Finish CTA */}
+          <div className="flex sm:hidden items-center justify-between gap-1.5 pt-1.5 border-t border-border/40">
+            <div className="flex items-center gap-1.5 overflow-x-auto min-w-0">
+              {/* Mobile Date Switcher */}
+              <div className="flex items-center rounded-lg bg-surface-1 border border-border px-1 py-0.5 shadow-xs shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleDateChange(addDays(workoutDate, -1))}
+                  className="grid h-5 w-5 place-items-center rounded text-faint hover:text-text"
+                  title="Previous day"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </button>
+                <label className="relative flex items-center gap-1 cursor-pointer px-1 text-[11px] font-semibold text-text">
+                  <Calendar className={cn("h-3 w-3", isPastWorkout ? "text-amber-400" : "text-accent")} />
+                  <span className={cn("max-w-[70px] truncate", isPastWorkout && "text-amber-400")}>{relLabel(workoutDate)}</span>
+                  <input
+                    type="date"
+                    value={workoutDate}
+                    max={todayISO()}
+                    onChange={(e) => {
+                      if (e.target.value) handleDateChange(e.target.value);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={workoutDate >= todayISO()}
+                  onClick={() => handleDateChange(addDays(workoutDate, 1))}
+                  className="grid h-5 w-5 place-items-center rounded text-faint hover:text-text disabled:opacity-25"
+                  title="Next day"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => (activeWorkout.isPaused ? resumeActiveWorkout() : pauseActiveWorkout())}
-                className="grid h-5 w-5 place-items-center rounded text-faint hover:text-text hover:bg-surface-hover"
-              >
-                {activeWorkout.isPaused ? (
-                  <Play className="h-3 w-3 text-emerald-400 fill-current" />
+
+              {/* Mobile Timer & Manual Duration Edit */}
+              <div className="flex items-center gap-1 rounded-lg bg-surface-1 border border-border px-2 py-0.5 shadow-xs shrink-0">
+                {isEditingDuration ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      commitDuration();
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <input
+                      type="number"
+                      min="1"
+                      max="600"
+                      value={tempDuration}
+                      onChange={(e) => setTempDuration(e.target.value)}
+                      onBlur={commitDuration}
+                      autoFocus
+                      className="w-11 rounded bg-surface-2 border border-accent/40 px-1 text-xs font-mono font-bold text-text text-center focus:outline-hidden"
+                    />
+                    <span className="text-[10px] text-muted">m</span>
+                    <button type="submit" className="grid h-4 w-4 place-items-center rounded bg-accent/20 text-accent">
+                      <Check className="h-2.5 w-2.5" />
+                    </button>
+                  </form>
                 ) : (
-                  <Pause className="h-3 w-3 text-accent" />
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={startEditingDuration}
+                      className="flex items-center gap-1 font-mono text-xs font-bold text-text"
+                      title="Click to edit duration"
+                    >
+                      <Clock className={cn("h-3.5 w-3.5 text-accent", !activeWorkout.isPaused && "animate-pulse")} />
+                      <span>{fmtTimer(elapsedSec)}</span>
+                      <Pencil className="h-2.5 w-2.5 text-faint" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => (activeWorkout.isPaused ? resumeActiveWorkout() : pauseActiveWorkout())}
+                      className="grid h-5 w-5 place-items-center rounded text-faint hover:text-text ml-0.5"
+                    >
+                      {activeWorkout.isPaused ? (
+                        <Play className="h-3 w-3 text-emerald-400 fill-current" />
+                      ) : (
+                        <Pause className="h-3 w-3 text-accent" />
+                      )}
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
 
             <button
               type="button"
               onClick={handleFinish}
-              className="btn-hero flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold shadow-sm"
+              className="btn-hero flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold shadow-sm shrink-0"
             >
               <Check className="h-3.5 w-3.5 stroke-[3]" />
-              <span>Finish Session</span>
+              <span>Finish</span>
             </button>
           </div>
         </div>

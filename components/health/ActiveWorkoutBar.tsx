@@ -16,6 +16,7 @@ import {
 import { useHealthData, getDisplayedWorkoutSeconds } from "@/lib/data/domains/health";
 import { workoutAudio } from "@/lib/audio/workout-audio";
 import { cn } from "@/lib/utils";
+import { todayISO, relLabel } from "@/lib/date";
 
 export function ActiveWorkoutBar() {
   const {
@@ -113,9 +114,15 @@ export function ActiveWorkoutBar() {
                 <h4 className="truncate font-display text-[13px] sm:text-[14px] font-bold text-text group-hover:text-accent transition-colors">
                   {activeWorkout.sessionTitle}
                 </h4>
-                <span className="hidden sm:inline-block rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
-                  ACTIVE
-                </span>
+                {activeWorkout.date && activeWorkout.date < todayISO() ? (
+                  <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                    {relLabel(activeWorkout.date)}
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-block rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
+                    ACTIVE
+                  </span>
+                )}
               </div>
               <p className="text-[11px] font-medium text-muted">
                 {totalSets > 0 ? `${completedSets}/${totalSets} sets done` : `${activeWorkout.sport} Workout`}
