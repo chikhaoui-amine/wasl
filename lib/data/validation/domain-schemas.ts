@@ -527,6 +527,78 @@ export const RecurringStateSchema = z.object({
   recurring: z.array(RecurringTaskSchema),
 });
 
+export const StudyResourceLinkSchema = z
+  .object({
+    id: z.string(),
+    label: z.string(),
+    url: z.string(),
+    type: z.enum(["tresor", "drive", "github", "classroom", "other"]),
+  })
+  .passthrough();
+
+export const StudyModuleSchema = z
+  .object({
+    id: z.string().min(1),
+    code: z.string().min(1),
+    name: z.string().min(1),
+    level: z.string(),
+    semester: z.string(),
+    coefficient: z.number().nonnegative(),
+    color: z.string(),
+    icon: z.string(),
+    absenceLimits: z.object({
+      td: z.number().int().nonnegative(),
+      tp: z.number().int().nonnegative(),
+      cours: z.number().int().nonnegative(),
+    }),
+    resources: z.array(StudyResourceLinkSchema),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .passthrough();
+
+export const StudyChecklistItemSchema = z
+  .object({
+    id: z.string().min(1),
+    moduleId: z.string().min(1),
+    category: z.enum(["cours", "td_series", "tp", "annale"]),
+    title: z.string().min(1),
+    completed: z.boolean(),
+    completedAt: z.string().optional(),
+    order: z.number().int().nonnegative(),
+    url: z.string().optional(),
+  })
+  .passthrough();
+
+export const StudyAbsenceRecordSchema = z
+  .object({
+    id: z.string().min(1),
+    moduleId: z.string().min(1),
+    type: z.enum(["td", "tp", "cours"]),
+    date: z.string(),
+    justified: z.boolean(),
+    note: z.string().optional(),
+  })
+  .passthrough();
+
+export const AcademicProfileSchema = z
+  .object({
+    level: z.string(),
+    currentSemester: z.string(),
+    academicYear: z.string(),
+  })
+  .passthrough();
+
+export const StudiesStateSchema = z
+  .object({
+    version: z.literal(1),
+    profile: AcademicProfileSchema,
+    modules: z.array(StudyModuleSchema),
+    checklist: z.array(StudyChecklistItemSchema),
+    absences: z.array(StudyAbsenceRecordSchema),
+  })
+  .passthrough();
+
 // ============================================================
 // DOMAIN SCHEMA REGISTRY MAP
 // ============================================================
@@ -543,6 +615,7 @@ export const STORE_STATE_SCHEMAS = {
   "lifeos-habits": HabitsStateSchema,
   "lifeos-money": MoneyStateSchema,
   "lifeos-recurring": RecurringStateSchema,
+  "lifeos-studies": StudiesStateSchema,
 } as const;
 
 export interface DomainValidationResult<T = unknown> {

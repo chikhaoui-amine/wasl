@@ -1,3 +1,4 @@
+import { normalizeStudiesState } from "./domains/studies/constants";
 /**
  * lib/data/migrations.ts
  *
@@ -46,4 +47,5 @@ export const DOMAIN_MIGRATIONS: MigrationRegistry = {
   "lifeos-trash": (v, s) => migrateTrashSnapshot(s, v),
   "lifeos-journal": (_v, s) => normalizeJournalState(s),
   "lifeos-money": (_v, s) => normalizeMoneyState(s),
+  "lifeos-studies": (_v, s) => normalizeStudiesState(s),
 };

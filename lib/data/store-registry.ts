@@ -14,6 +14,7 @@ export const STORE_REGISTRY = {
   "lifeos-habits": { version: 4, name: "Habits", description: "Habit streaks, targets, colors, and weekly logs" },
   "lifeos-money": { version: 4, name: "Money", description: "Transactions, recurring expenses, and accounts" },
   "lifeos-recurring": { version: 1, name: "Recurring Tasks", description: "Recurring task templates and cadence" },
+  "lifeos-studies": { version: 1, name: "Studies", description: "Academic curriculum, syllabus roadmaps, and attendance guardian" },
 } as const;
 
 export type StoreKey = keyof typeof STORE_REGISTRY;

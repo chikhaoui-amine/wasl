@@ -27,7 +27,8 @@ export type DomainName =
   | "trash"
   | "journal"
   | "money"
-  | "health";
+  | "health"
+  | "studies";
 
 export const DEFAULT_ALLOWED_DOMAINS: DomainName[] = [
   "tasks",
@@ -36,6 +37,7 @@ export const DEFAULT_ALLOWED_DOMAINS: DomainName[] = [
   "habits",
   "blocks",
   "recurring",
+  "studies",
   "topics",
   "trash",
 ];
