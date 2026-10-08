@@ -76,6 +76,7 @@ export interface BlocksPersistedState {
   blocks: Block[];
   view: "week" | "day";
   anchor: string;
+  lastSyncedAt?: string;
 }
 
 /**

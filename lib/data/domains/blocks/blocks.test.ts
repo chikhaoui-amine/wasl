@@ -102,7 +102,7 @@ describe("Blocks Domain — Adapter Integration", () => {
     await localAdapter.initialize();
     await localAdapter.putStore({
       store: "lifeos-blocks",
-      version: 3,
+      version: CURRENT_BLOCKS_VERSION,
       state: { blocks: [], view: "week", anchor: "2026-08-23" },
       updatedAt: new Date().toISOString(),
       revision: 1,

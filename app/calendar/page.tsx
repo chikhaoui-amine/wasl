@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react";
 import { useBlocksData, type Block } from "@/lib/data/domains/blocks";
 import { BlockForm } from "@/components/forms/BlockForm";
+import { GoogleSyncStatus } from "@/components/calendar/GoogleSyncStatus";
+import { IcsImportExportModal } from "@/components/calendar/IcsImportExportModal";
 import { Hydrate } from "@/lib/hydration";
 import { addDays, fromISO, todayISO, weekISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -52,6 +54,7 @@ export default function CalendarPage() {
 
   const [creating, setCreating] = useState<{ date: string; start: number; end?: number } | null>(null);
   const [editing, setEditing] = useState<Block | undefined>();
+  const [icsModalOpen, setIcsModalOpen] = useState(false);
 
   const rolling7 = Array.from({ length: 7 }, (_, i) => addDays(anchor, i));
   const cols = view === "week" ? rolling7 : [anchor];
@@ -103,12 +106,23 @@ export default function CalendarPage() {
             <span className="hidden text-[13px] font-medium text-muted sm:inline">{monthLabel}</span>
           </div>
 
-          <button
-            onClick={() => setCreating({ date: view === "day" ? anchor : t, start: 9 })}
-            className="btn-hero flex items-center gap-1 sm:gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold"
-          >
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> New block
-          </button>
+          <div className="flex items-center gap-2">
+            <GoogleSyncStatus />
+            <button
+              onClick={() => setIcsModalOpen(true)}
+              title="Import or Export .ics calendar file"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-2.5 py-1 text-xs font-medium text-muted hover:text-text hover:bg-surface-hover transition-colors"
+            >
+              <Calendar className="h-3.5 w-3.5 text-accent" />
+              <span className="hidden sm:inline">.ics</span>
+            </button>
+            <button
+              onClick={() => setCreating({ date: view === "day" ? anchor : t, start: 9 })}
+              className="btn-hero flex items-center gap-1 sm:gap-1.5 rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold"
+            >
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> New block
+            </button>
+          </div>
         </div>
 
         {/* day headers with navigation arrows */}
@@ -205,6 +219,7 @@ export default function CalendarPage() {
         defaults={creating ?? undefined}
       />
       <BlockForm open={!!editing} onClose={() => setEditing(undefined)} block={editing} />
+      <IcsImportExportModal open={icsModalOpen} onClose={() => setIcsModalOpen(false)} />
     </Hydrate>
   );
 }

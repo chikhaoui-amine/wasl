@@ -983,6 +983,23 @@ export class LocalMcpExecutor {
         return { success: true, id };
       }
 
+      case "calendar_sync_status": {
+        return {
+          configured: false,
+          connected: false,
+          provider: "local",
+          message: "WASL Local runs 100% offline without network integrations. Use the calendar toolbar to import or export standard RFC 5545 .ics files.",
+        };
+      }
+
+      case "calendar_sync": {
+        return {
+          success: false,
+          provider: "local",
+          message: "Network calendar sync is unavailable in WASL Local. Export or import standard .ics calendar files instead.",
+        };
+      }
+
       // ---------------------------------------------------------------------
       // Journal (Sensitive)
       // ---------------------------------------------------------------------

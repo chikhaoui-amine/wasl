@@ -373,6 +373,16 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
       id: z.string().describe("Calendar block ID"),
     }),
   },
+  {
+    name: "calendar_sync_status",
+    description: "Check status of external calendar integration and sync state.",
+    schema: z.object({}),
+  },
+  {
+    name: "calendar_sync",
+    description: "Trigger calendar synchronization with connected external calendar.",
+    schema: z.object({}),
+  },
 
   // -------------------------------------------------------------------------
   // Sensitive Domains (Permission Gated)

@@ -413,12 +413,17 @@ export const BlockSchema = z.object({
   end: z.number(),
   title: z.string(),
   color: z.string(),
+  externalId: z.string().optional(),
+  externalProvider: z.literal("google").optional(),
+  updatedAt: z.string().optional(),
+  description: z.string().optional(),
 });
 
 export const BlocksStateSchema = z.object({
   blocks: z.array(BlockSchema),
   view: z.enum(["week", "day"]).optional(),
   anchor: z.string().optional(),
+  lastSyncedAt: z.string().optional(),
 });
 
 // ============================================================

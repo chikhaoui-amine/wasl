@@ -14,6 +14,7 @@ import {
   deleteBlockOperation,
   setViewOperation,
   setAnchorOperation,
+  mergeBlocksOperation,
   type Block,
   type BlockInput,
 } from "./operations";
@@ -107,10 +108,18 @@ export function useBlocksData() {
     [mutation],
   );
 
+  const mergeBlocks = useCallback(
+    async (mergedBlocks: Block[], lastSyncedAt?: string): Promise<void> => {
+      await mutation.mutateAsync((current) => mergeBlocksOperation(current, mergedBlocks, lastSyncedAt));
+    },
+    [mutation],
+  );
+
   return {
     blocks: state.blocks,
     view: state.view ?? "week",
     anchor: state.anchor,
+    lastSyncedAt: state.lastSyncedAt,
     isLoading,
     error,
     edition,
@@ -119,5 +128,6 @@ export function useBlocksData() {
     deleteBlock,
     setView,
     setAnchor,
+    mergeBlocks,
   };
 }

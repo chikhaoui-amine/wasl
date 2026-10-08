@@ -8,6 +8,10 @@ export interface Block {
   end: number;
   title: string;
   color: string;
+  externalId?: string;
+  externalProvider?: "google";
+  updatedAt?: string;
+  description?: string;
 }
 
 export type BlockInput = Omit<Block, "id">;
@@ -18,6 +22,7 @@ export function getDefaultAnchor(): string {
 
 export function createDefaultBlocksState(): BlocksPersistedState {
   const t = todayISO();
+  const nowIso = new Date().toISOString();
   return {
     blocks: [
       {
@@ -27,6 +32,7 @@ export function createDefaultBlocksState(): BlocksPersistedState {
         end: 8.5,   // 08:30
         title: "Morning Routine & Physical Training",
         color: "#37c9b7",
+        updatedAt: nowIso,
       },
       {
         id: "block-sample-2",
@@ -35,6 +41,7 @@ export function createDefaultBlocksState(): BlocksPersistedState {
         end: 11.5,  // 11:30
         title: "Deep Work: Core System Architecture",
         color: "#7c9cf5",
+        updatedAt: nowIso,
       },
       {
         id: "block-sample-3",
@@ -43,6 +50,7 @@ export function createDefaultBlocksState(): BlocksPersistedState {
         end: 13.0,  // 13:00
         title: "Lunch & Recharging Walk",
         color: "#5fb36a",
+        updatedAt: nowIso,
       },
       {
         id: "block-sample-4",
@@ -51,6 +59,7 @@ export function createDefaultBlocksState(): BlocksPersistedState {
         end: 16.5,  // 16:30
         title: "Strategy, Learning & Synthesis",
         color: "#b57edc",
+        updatedAt: nowIso,
       },
       {
         id: "block-sample-5",
@@ -59,6 +68,7 @@ export function createDefaultBlocksState(): BlocksPersistedState {
         end: 21.5,  // 21:30
         title: "Evening Wind-down & Journal",
         color: "#e0a34a",
+        updatedAt: nowIso,
       },
     ],
     view: "week",
@@ -75,6 +85,7 @@ export function normalizeBlock(raw: unknown): Block {
       end: 10,
       title: "Untitled Block",
       color: "var(--accent)",
+      updatedAt: new Date().toISOString(),
     };
   }
 
@@ -86,6 +97,10 @@ export function normalizeBlock(raw: unknown): Block {
     end: typeof b.end === "number" ? b.end : 10,
     title: typeof b.title === "string" ? b.title : "Untitled Block",
     color: typeof b.color === "string" ? b.color : "var(--accent)",
+    ...(typeof b.externalId === "string" ? { externalId: b.externalId } : {}),
+    ...(b.externalProvider === "google" ? { externalProvider: "google" } : {}),
+    ...(typeof b.updatedAt === "string" ? { updatedAt: b.updatedAt } : { updatedAt: new Date().toISOString() }),
+    ...(typeof b.description === "string" ? { description: b.description } : {}),
   };
 }
 
@@ -99,6 +114,7 @@ export function normalizeBlocksState(raw: unknown): BlocksPersistedState {
     blocks: Array.isArray(state.blocks) ? state.blocks.map(normalizeBlock) : [],
     view: state.view === "day" || state.view === "week" ? state.view : "week",
     anchor: typeof state.anchor === "string" && state.anchor ? state.anchor : initialAnchor,
+    ...(typeof state.lastSyncedAt === "string" ? { lastSyncedAt: state.lastSyncedAt } : {}),
   };
 }
 
@@ -138,5 +154,17 @@ export function setAnchorOperation(current: BlocksPersistedState, anchor: string
   return {
     ...current,
     anchor,
+  };
+}
+
+export function mergeBlocksOperation(
+  current: BlocksPersistedState,
+  mergedBlocks: Block[],
+  lastSyncedAt?: string,
+): BlocksPersistedState {
+  return {
+    ...current,
+    blocks: mergedBlocks.map(normalizeBlock),
+    ...(lastSyncedAt ? { lastSyncedAt } : {}),
   };
 }

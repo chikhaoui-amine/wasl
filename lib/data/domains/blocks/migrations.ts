@@ -1,7 +1,7 @@
 import type { BlocksPersistedState } from "../../types";
 import { normalizeBlocksState } from "./operations";
 
-export const CURRENT_BLOCKS_VERSION = 3;
+export const CURRENT_BLOCKS_VERSION = 4;
 
 export function migrateBlocksSnapshot(raw: unknown, fromVersion: number): BlocksPersistedState {
   if (fromVersion > CURRENT_BLOCKS_VERSION) {
