@@ -51,11 +51,8 @@ describe("WASL Local MCP structured result contracts", () => {
     const text = result.content[0]?.type === "text" ? result.content[0].text : "";
 
     expect(result.structuredContent).toEqual({ ok: true, data });
-    expect(result.content[0]).toEqual({
-      type: "text",
-      text: `${action} returned structured data.`,
-    });
-    expect(text).not.toContain(JSON.stringify(data));
+    // Clients that ignore structuredContent must still see the data as text.
+    expect(JSON.parse(text)).toEqual(result.structuredContent);
   });
 
   it.each([

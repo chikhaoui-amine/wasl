@@ -155,10 +155,11 @@ export function errorResult(error: unknown): CallToolResult {
         }
       : classifyError(error);
 
+  const structuredContent = { ok: false, error: body };
   return {
     isError: true,
-    content: [{ type: "text", text: body.message }],
-    structuredContent: { ok: false, error: body },
+    content: [{ type: "text", text: JSON.stringify(structuredContent) }],
+    structuredContent,
   };
 }
 
@@ -182,14 +183,10 @@ export function successResult(action: string, raw: unknown, requestId?: McpReque
       };
 
   return {
-    content: [
-      {
-        type: "text",
-        text: isReadAction(action)
-          ? `${action} returned structured data.`
-          : `${action} completed successfully.`,
-      },
-    ],
+    // Many MCP clients (including Claude) only show the model `content`, not
+    // `structuredContent`. Per the MCP spec, mirror the structured result as JSON
+    // text so the model can actually read the data it asked for.
+    content: [{ type: "text", text: JSON.stringify(structuredContent) }],
     structuredContent,
   };
 }
