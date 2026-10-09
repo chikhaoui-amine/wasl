@@ -48,4 +48,40 @@ describe("LiveMarkdownEditor", () => {
     expect(html).toContain("sm:float-left");
     expect(html).toContain("My Photo");
   });
+
+  describe("XSS hardening", () => {
+    const render = (md: string) => {
+      const host = document.createElement("div");
+      host.innerHTML = markdownToHtml(md);
+      return host;
+    };
+
+    it("does not let image URLs break out of attributes", () => {
+      const host = render('![x](a" onerror="alert`1`)');
+      expect(host.querySelector("[onerror]")).toBeNull();
+    });
+
+    it("does not let link URLs break out of attributes", () => {
+      const host = render('[x](https://a.com" onmouseover="alert`1`)');
+      expect(host.querySelector("[onmouseover]")).toBeNull();
+    });
+
+    it("drops javascript: links and images but keeps their text", () => {
+      const host = render("[click](javascript:alert`1`)\n\n![pic](javascript:alert`1`)");
+      expect(host.querySelector("a")).toBeNull();
+      expect(host.querySelector("img")).toBeNull();
+      expect(host.textContent).toContain("click");
+    });
+
+    it("keeps safe links and data:image images working", () => {
+      const host = render("[site](https://example.com)\n\n![p](data:image/png;base64,AAAA)");
+      expect(host.querySelector("a")?.getAttribute("href")).toBe("https://example.com");
+      expect(host.querySelector("img")?.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+    });
+
+    it("round-trips quotes in text", () => {
+      const md = 'He said "hi" and it\'s fine';
+      expect(htmlToMarkdown(render(md)).trim()).toBe(md);
+    });
+  });
 });

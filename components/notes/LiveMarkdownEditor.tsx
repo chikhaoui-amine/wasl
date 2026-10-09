@@ -9,7 +9,7 @@ import React, {
   useCallback,
 } from "react";
 import { parseImageMarkdown, formatImageMarkdown, compressImage, type ImageAlignment, type ImageSize } from "@/lib/images";
-import { isRtlText } from "@/components/ui/MarkdownRenderer";
+import { isRtlText, safeMarkdownUrlTransform } from "@/components/ui/MarkdownRenderer";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { cn } from "@/lib/utils";
 
@@ -30,10 +30,18 @@ interface LiveMarkdownEditorProps {
 }
 
 function escapeHtml(text: string): string {
+  // Quotes must be escaped too: this output lands in attribute values via innerHTML.
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Allow-listed URL schemes only (no javascript:, vbscript:, data:text/html, ...). */
+function safeUrl(url: string): string {
+  return safeMarkdownUrlTransform(url);
 }
 
 function inlineMarkdownToHtml(text: string): string {
@@ -49,7 +57,13 @@ function inlineMarkdownToHtml(text: string): string {
   // Inline code `code`
   html = html.replace(/`([^`]+?)`/g, '<code class="rounded-md border border-border/60 bg-surface-2 px-1.5 py-0.5 font-mono text-[13px] text-accent font-medium">$1</code>');
   // Links [text](url)
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-accent underline font-semibold">$1</a>');
+  // `html` is already escaped, so the captured URL is attribute-safe; only the scheme needs checking.
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, url: string) => {
+    const href = safeUrl(url);
+    return href
+      ? `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-accent underline font-semibold">${label}</a>`
+      : label;
+  });
   return html;
 }
 
@@ -189,6 +203,11 @@ export function markdownToHtml(markdown: string): string {
 
     // Image: ![alt](url)
     const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imgMatch && !safeUrl(imgMatch[2])) {
+      // Disallowed image URL scheme: show the markdown as plain text instead of rendering it.
+      htmlParts.push(`<p class="text-base leading-relaxed text-text/90 my-2 font-normal whitespace-pre-wrap">${escapeHtml(trimmed)}</p>`);
+      continue;
+    }
     if (imgMatch) {
       const { caption, align, size } = parseImageMarkdown(imgMatch[1] || "");
       const containerCls = getImageClasses(align, size);
