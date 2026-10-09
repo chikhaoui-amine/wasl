@@ -78,4 +78,13 @@ describe("blocks Google sync operations", () => {
     const next = importBlocksOperation(state([linked, other]), [{ ...other, title: "Imported" }]);
     expect(next.blocks.map((b) => b.title)).toEqual(["Standup", "Imported"]);
   });
+
+  it("deleting a mirrored or .ics-imported block does not delete anything in Google", () => {
+    const mirror: Block = { ...linked, id: "m", externalId: "class-evt", externalCalendarId: "class@group" };
+    const ics: Block = { ...linked, id: "i", externalId: "uid@google.com", externalProvider: undefined };
+    let next = deleteBlockOperation(state([mirror, ics]), "m");
+    next = deleteBlockOperation(next, "i");
+    expect(next.blocks).toHaveLength(0);
+    expect(next.pendingGoogleDeletes ?? []).toEqual([]);
+  });
 });

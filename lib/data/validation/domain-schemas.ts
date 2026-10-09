@@ -417,6 +417,7 @@ export const BlockSchema = z.object({
   externalProvider: z.literal("google").optional(),
   updatedAt: z.string().optional(),
   externalUpdatedAt: z.string().optional(),
+  externalCalendarId: z.string().optional(),
   description: z.string().optional(),
 });
 

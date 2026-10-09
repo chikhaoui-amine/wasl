@@ -107,6 +107,7 @@ describe("lifeos-blocks schema drift", () => {
           externalProvider: "google" as const,
           updatedAt: "2026-10-08T08:00:00.000Z",
           externalUpdatedAt: "2026-10-08T08:00:00.000Z",
+          externalCalendarId: "class@group.calendar.google.com",
           description: "notes",
         },
       ],
@@ -123,6 +124,7 @@ describe("lifeos-blocks schema drift", () => {
     expect(parsed.pendingGoogleDeletes).toEqual(["gcal_deleted_1"]);
     const runtime = normalizeBlocksState(sample);
     expect(runtime.blocks[0].externalUpdatedAt).toBe("2026-10-08T08:00:00.000Z");
+    expect(runtime.blocks[0].externalCalendarId).toBe("class@group.calendar.google.com");
     expect(runtime.pendingGoogleDeletes).toEqual(["gcal_deleted_1"]);
   });
 });

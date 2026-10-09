@@ -9,6 +9,12 @@ export interface GoogleCalendarEvent {
   start?: { dateTime?: string; date?: string; timeZone?: string };
   end?: { dateTime?: string; date?: string; timeZone?: string };
   colorId?: string;
+  /** iCalendar UID; matches the UID of blocks imported from an .ics export. */
+  iCalUID?: string;
+  /** Set by WASL's pull endpoint: the source calendar when it isn't the primary one. */
+  calendarId?: string;
+  /** Set by WASL's pull endpoint: the source calendar's display color. */
+  calendarColor?: string;
 }
 
 const ALL_DAY_PREFIX = "[All-Day] ";
@@ -111,9 +117,10 @@ export function googleEventToBlock(event: GoogleCalendarEvent, existingBlock?: B
     start,
     end,
     title,
-    color: existingBlock?.color || "#7c9cf5",
+    color: existingBlock?.color || event.calendarColor || "#7c9cf5",
     externalId: event.id,
     externalProvider: "google",
+    ...(event.calendarId ? { externalCalendarId: event.calendarId } : {}),
     updatedAt,
     externalUpdatedAt: updatedAt,
     description: event.description || "",
@@ -151,6 +158,8 @@ export function isGoogleLinked(block: Block): boolean {
  * `externalUpdatedAt` existed are treated as clean.
  */
 export function hasUnpushedGoogleChanges(block: Block): boolean {
+  // Mirrors of other calendars (class schedules, shared calendars) are read-only.
+  if (block.externalCalendarId) return false;
   if (!isGoogleLinked(block)) return true;
   if (!block.externalUpdatedAt) return false;
   return block.updatedAt !== block.externalUpdatedAt;
@@ -163,6 +172,8 @@ export function hasUnpushedGoogleChanges(block: Block): boolean {
 export function selectBlocksToPush(blocks: Block[], today: string): Block[] {
   const windowStart = shiftIsoDate(today, -GOOGLE_PUSH_LOOKBACK_DAYS);
   return blocks.filter((b) => {
+    // Blocks imported from .ics came from another calendar; pushing them duplicates it.
+    if (b.externalId && b.externalProvider !== "google") return false;
     if (!hasUnpushedGoogleChanges(b)) return false;
     if (!isGoogleLinked(b) && b.date < windowStart) return false;
     return true;
@@ -191,6 +202,14 @@ export function mergeGoogleEvents(
     }
 
     const existingIndex = updatedBlocks.findIndex((b) => isGoogleLinked(b) && b.externalId === event.id);
+    if (existingIndex < 0 && event.iCalUID) {
+      // Same event already imported from an .ics file: link it instead of duplicating it.
+      const adoptIndex = updatedBlocks.findIndex((b) => !isGoogleLinked(b) && b.externalId === event.iCalUID);
+      if (adoptIndex >= 0) {
+        updatedBlocks[adoptIndex] = googleEventToBlock(event, updatedBlocks[adoptIndex]);
+        continue;
+      }
+    }
     if (existingIndex >= 0) {
       const existing = updatedBlocks[existingIndex];
       const localTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;

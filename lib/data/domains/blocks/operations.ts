@@ -19,6 +19,8 @@ export interface Block {
   updatedAt?: string;
   /** Google's `updated` timestamp at last sync; equals `updatedAt` while the block is clean. */
   externalUpdatedAt?: string;
+  /** Source Google calendar when it isn't the primary one; such blocks are read-only mirrors. */
+  externalCalendarId?: string;
   description?: string;
 }
 
@@ -109,6 +111,7 @@ export function normalizeBlock(raw: unknown): Block {
     ...(b.externalProvider === "google" ? { externalProvider: "google" } : {}),
     ...(typeof b.updatedAt === "string" ? { updatedAt: b.updatedAt } : { updatedAt: new Date().toISOString() }),
     ...(typeof b.externalUpdatedAt === "string" ? { externalUpdatedAt: b.externalUpdatedAt } : {}),
+    ...(typeof b.externalCalendarId === "string" && b.externalCalendarId ? { externalCalendarId: b.externalCalendarId } : {}),
     ...(typeof b.description === "string" ? { description: b.description } : {}),
   };
 }
@@ -177,8 +180,12 @@ export function withPendingGoogleDelete(current: BlocksPersistedState, externalI
 
 export function deleteBlockOperation(current: BlocksPersistedState, id: string): BlocksPersistedState {
   const target = current.blocks.find((b) => b.id === id);
+  // Only events WASL can manage (primary calendar) are deleted in Google; mirrors of
+  // other calendars and .ics imports are removed locally only.
+  const googleEventId =
+    target?.externalProvider === "google" && !target.externalCalendarId ? target.externalId : undefined;
   return {
-    ...withPendingGoogleDelete(current, target?.externalId),
+    ...withPendingGoogleDelete(current, googleEventId),
     blocks: current.blocks.filter((b) => b.id !== id),
   };
 }

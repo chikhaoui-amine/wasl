@@ -305,4 +305,62 @@ describe("Google Calendar Sync Utilities", () => {
       expect(hasUnpushedGoogleChanges(result[1])).toBe(true);
     });
   });
+
+  describe("multiple calendars and .ics imports", () => {
+    const icsBlock: Block = {
+      id: "ics-1",
+      date: "2026-10-05",
+      start: 8.5,
+      end: 10.42,
+      title: "Cours PRDS",
+      color: "#37c9b7",
+      externalId: "abc123@google.com",
+      updatedAt: "2026-10-09T16:36:56.000Z",
+    };
+
+    it("links an .ics-imported block to the matching Google event instead of duplicating it", () => {
+      const result = mergeGoogleEvents([icsBlock], [
+        {
+          id: "evt1",
+          iCalUID: "abc123@google.com",
+          summary: "Cours PRDS BENCHERIF A",
+          updated: "2026-10-09T20:00:00.000Z",
+          start: { dateTime: "2026-10-05T08:30:00+01:00" },
+          end: { dateTime: "2026-10-05T10:25:00+01:00" },
+          calendarId: "class@group.calendar.google.com",
+        },
+      ]);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: "ics-1",
+        color: "#37c9b7",
+        externalId: "evt1",
+        externalProvider: "google",
+        externalCalendarId: "class@group.calendar.google.com",
+      });
+    });
+
+    it("tags events from other calendars with their calendar and color", () => {
+      const [b] = mergeGoogleEvents([], [
+        { id: "e2", calendarId: "class@group", calendarColor: "#ff0000", start: { dateTime: "2026-10-05T13:00:00+01:00" } },
+      ]);
+      expect(b.externalCalendarId).toBe("class@group");
+      expect(b.color).toBe("#ff0000");
+    });
+
+    it("never pushes mirrors of other calendars or .ics imports, even when edited", () => {
+      const mirror: Block = {
+        ...icsBlock,
+        id: "m",
+        externalId: "e3",
+        externalProvider: "google",
+        externalCalendarId: "class@group",
+        updatedAt: "2026-10-09T23:00:00.000Z",
+        externalUpdatedAt: "2026-10-09T20:00:00.000Z",
+      };
+      const created: Block = { ...icsBlock, id: "new", externalId: undefined };
+      const ids = selectBlocksToPush([icsBlock, mirror, created], "2026-10-09").map((b) => b.id);
+      expect(ids).toEqual(["new"]);
+    });
+  });
 });
