@@ -6,6 +6,7 @@ import { useDataAdapter, useDataEdition, useDataUserId } from "../../query/provi
 import { queryKeys } from "../../query/keys";
 import { useSerializedMutations } from "../../query/mutation-queue";
 import type { BlocksPersistedState } from "../../types";
+import type { GoogleCalendarEvent, GooglePushConfirmation } from "@/lib/calendar/google-sync-utils";
 import {
   createDefaultBlocksState,
   normalizeBlocksState,
@@ -14,7 +15,10 @@ import {
   deleteBlockOperation,
   setViewOperation,
   setAnchorOperation,
-  mergeBlocksOperation,
+  importBlocksOperation,
+  mergeGoogleEventsOperation,
+  applyGooglePushOperation,
+  clearGoogleSyncStateOperation,
   type Block,
   type BlockInput,
 } from "./operations";
@@ -108,18 +112,35 @@ export function useBlocksData() {
     [mutation],
   );
 
-  const mergeBlocks = useCallback(
-    async (mergedBlocks: Block[], lastSyncedAt?: string): Promise<void> => {
-      await mutation.mutateAsync((current) => mergeBlocksOperation(current, mergedBlocks, lastSyncedAt));
+  const importBlocks = useCallback(
+    async (imported: Block[]): Promise<void> => {
+      await mutation.mutateAsync((current) => importBlocksOperation(current, imported));
     },
     [mutation],
   );
+
+  const applyGooglePull = useCallback(
+    (events: GoogleCalendarEvent[], syncedAt: string): Promise<BlocksPersistedState> =>
+      mutation.mutateAsync((current) => mergeGoogleEventsOperation(current, events, syncedAt)),
+    [mutation],
+  );
+
+  const applyGooglePush = useCallback(
+    (confirmations: GooglePushConfirmation[], deletedExternalIds: string[], syncedAt: string): Promise<BlocksPersistedState> =>
+      mutation.mutateAsync((current) => applyGooglePushOperation(current, confirmations, deletedExternalIds, syncedAt)),
+    [mutation],
+  );
+
+  const clearGoogleSyncState = useCallback(async (): Promise<void> => {
+    await mutation.mutateAsync((current) => clearGoogleSyncStateOperation(current));
+  }, [mutation]);
 
   return {
     blocks: state.blocks,
     view: state.view ?? "week",
     anchor: state.anchor,
     lastSyncedAt: state.lastSyncedAt,
+    pendingGoogleDeletes: state.pendingGoogleDeletes,
     isLoading,
     error,
     edition,
@@ -128,6 +149,9 @@ export function useBlocksData() {
     deleteBlock,
     setView,
     setAnchor,
-    mergeBlocks,
+    importBlocks,
+    applyGooglePull,
+    applyGooglePush,
+    clearGoogleSyncState,
   };
 }

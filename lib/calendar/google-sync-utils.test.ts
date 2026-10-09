@@ -4,6 +4,9 @@ import {
   blockToGoogleEvent,
   mergeGoogleEvents,
   decimalHoursToIso,
+  hasUnpushedGoogleChanges,
+  selectBlocksToPush,
+  applyGooglePushResults,
   isoToDecimalHours,
   type GoogleCalendarEvent,
 } from "./google-sync-utils";
@@ -142,6 +145,7 @@ describe("Google Calendar Sync Utilities", () => {
         {
           id: "b_local_1",
           externalId: "g1",
+          externalProvider: "google",
           title: "Old Local Title",
           date: "2026-10-08",
           start: 9,
@@ -172,12 +176,14 @@ describe("Google Calendar Sync Utilities", () => {
         {
           id: "b_local_1",
           externalId: "g1",
+          externalProvider: "google",
           title: "Fresh Local Edit",
           date: "2026-10-08",
           start: 9,
           end: 10,
           color: "#7c9cf5",
-          updatedAt: "2026-10-08T12:00:00.000Z", // newer
+          updatedAt: "2026-10-08T12:00:00.000Z", // newer, not yet pushed
+          externalUpdatedAt: "2026-10-08T09:00:00.000Z",
         },
       ];
 
@@ -201,6 +207,7 @@ describe("Google Calendar Sync Utilities", () => {
         {
           id: "b_local_1",
           externalId: "g1",
+          externalProvider: "google",
           title: "To Be Deleted",
           date: "2026-10-08",
           start: 9,
@@ -228,6 +235,74 @@ describe("Google Calendar Sync Utilities", () => {
       const result = mergeGoogleEvents(current, incoming);
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("b_local_2");
+    });
+  });
+
+  describe("sync correctness", () => {
+    const base: Block = {
+      id: "b1",
+      date: "2026-10-08",
+      start: 9,
+      end: 10,
+      title: "Synced",
+      color: "#7c9cf5",
+      externalId: "g1",
+      externalProvider: "google",
+      updatedAt: "2026-10-08T09:00:00.000Z",
+      externalUpdatedAt: "2026-10-08T09:00:00.000Z",
+    };
+
+    it("rolls hour 24 over to next day and never emits :60 minutes", () => {
+      expect(decimalHoursToIso("2026-10-31", 24, "Europe/Paris")).toBe("2026-11-01T00:00:00");
+      expect(decimalHoursToIso("2026-10-08", 9.999, "UTC")).toBe("2026-10-08T10:00:00.000Z");
+    });
+
+    it("clamps events crossing midnight to end of day", () => {
+      const block = googleEventToBlock({
+        id: "late",
+        start: { dateTime: "2026-10-08T22:00:00+01:00" },
+        end: { dateTime: "2026-10-09T01:00:00+01:00" },
+      });
+      expect(block.start).toBe(22);
+      expect(block.end).toBe(24);
+    });
+
+    it("strips the all-day prefix when pushing", () => {
+      expect(blockToGoogleEvent({ ...base, title: "[All-Day] Holiday" }).summary).toBe("Holiday");
+    });
+
+    it("pulled blocks are clean and not re-pushed", () => {
+      const pulled = googleEventToBlock({ id: "g9", updated: "2026-10-08T10:00:00.000Z", start: { dateTime: "2026-10-08T10:00:00Z" } });
+      expect(hasUnpushedGoogleChanges(pulled)).toBe(false);
+      expect(selectBlocksToPush([pulled], "2026-10-08")).toHaveLength(0);
+    });
+
+    it("selects edited linked blocks and recent unlinked blocks only", () => {
+      const edited = { ...base, id: "e", updatedAt: "2026-10-08T12:00:00.000Z" };
+      const fresh = { ...base, id: "n", externalId: undefined, externalUpdatedAt: undefined };
+      const ancient = { ...fresh, id: "old", date: "2020-01-01" };
+      const ids = selectBlocksToPush([base, edited, fresh, ancient], "2026-10-08").map((b) => b.id);
+      expect(ids).toEqual(["e", "n"]);
+    });
+
+    it("ignores events that were deleted locally but not yet pushed", () => {
+      const result = mergeGoogleEvents([], [{ id: "g1", updated: "2026-10-08T10:00:00.000Z", start: { dateTime: "2026-10-08T10:00:00Z" } }], ["g1"]);
+      expect(result).toHaveLength(0);
+    });
+
+    it("push results keep blocks edited during the push dirty", () => {
+      const current = [
+        { ...base, id: "a", externalId: undefined, externalUpdatedAt: undefined, updatedAt: "T1" },
+        { ...base, id: "b", externalId: undefined, externalUpdatedAt: undefined, updatedAt: "T3" },
+      ];
+      const result = applyGooglePushResults(current, [
+        { id: "a", externalId: "ga", updatedAt: "R1", sentUpdatedAt: "T1" },
+        { id: "b", externalId: "gb", updatedAt: "R2", sentUpdatedAt: "T2" },
+      ]);
+      expect(result[0]).toMatchObject({ externalId: "ga", updatedAt: "R1", externalUpdatedAt: "R1" });
+      expect(hasUnpushedGoogleChanges(result[0])).toBe(false);
+      expect(result[1]).toMatchObject({ externalId: "gb", updatedAt: "T3", externalUpdatedAt: "R2" });
+      expect(hasUnpushedGoogleChanges(result[1])).toBe(true);
     });
   });
 });

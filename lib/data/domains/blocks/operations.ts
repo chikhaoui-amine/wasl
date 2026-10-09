@@ -1,5 +1,11 @@
 import { todayISO, weekISO, fromISO } from "@/lib/date";
 import type { BlocksPersistedState } from "../../types";
+import {
+  applyGooglePushResults,
+  mergeGoogleEvents,
+  type GoogleCalendarEvent,
+  type GooglePushConfirmation,
+} from "@/lib/calendar/google-sync-utils";
 
 export interface Block {
   id: string;
@@ -11,6 +17,8 @@ export interface Block {
   externalId?: string;
   externalProvider?: "google";
   updatedAt?: string;
+  /** Google's `updated` timestamp at last sync; equals `updatedAt` while the block is clean. */
+  externalUpdatedAt?: string;
   description?: string;
 }
 
@@ -100,6 +108,7 @@ export function normalizeBlock(raw: unknown): Block {
     ...(typeof b.externalId === "string" ? { externalId: b.externalId } : {}),
     ...(b.externalProvider === "google" ? { externalProvider: "google" } : {}),
     ...(typeof b.updatedAt === "string" ? { updatedAt: b.updatedAt } : { updatedAt: new Date().toISOString() }),
+    ...(typeof b.externalUpdatedAt === "string" ? { externalUpdatedAt: b.externalUpdatedAt } : {}),
     ...(typeof b.description === "string" ? { description: b.description } : {}),
   };
 }
@@ -115,6 +124,9 @@ export function normalizeBlocksState(raw: unknown): BlocksPersistedState {
     view: state.view === "day" || state.view === "week" ? state.view : "week",
     anchor: typeof state.anchor === "string" && state.anchor ? state.anchor : initialAnchor,
     ...(typeof state.lastSyncedAt === "string" ? { lastSyncedAt: state.lastSyncedAt } : {}),
+    ...(Array.isArray(state.pendingGoogleDeletes)
+      ? { pendingGoogleDeletes: state.pendingGoogleDeletes.filter((id): id is string => typeof id === "string" && id.length > 0) }
+      : {}),
   };
 }
 
@@ -132,13 +144,41 @@ export function updateBlockOperation(
 ): BlocksPersistedState {
   return {
     ...current,
-    blocks: current.blocks.map((b) => (b.id === id ? normalizeBlock({ ...b, ...patch }) : b)),
+    blocks: current.blocks.map((b) => (b.id === id ? touchBlock(b, patch) : b)),
   };
 }
 
+/**
+ * Applies a local edit and bumps `updatedAt` so external sync sees the change.
+ * Linked blocks from before `externalUpdatedAt` existed get their pre-edit
+ * timestamp recorded as the last-synced marker, so the edit is detected as unpushed.
+ */
+export function touchBlock(b: Block, patch: Partial<BlockInput>): Block {
+  const prevUpdatedAt = b.updatedAt;
+  let nextUpdatedAt = new Date().toISOString();
+  if (prevUpdatedAt && nextUpdatedAt <= prevUpdatedAt) {
+    nextUpdatedAt = new Date(new Date(prevUpdatedAt).getTime() + 1).toISOString();
+  }
+  return normalizeBlock({
+    ...b,
+    ...patch,
+    ...(b.externalId && !b.externalUpdatedAt && prevUpdatedAt ? { externalUpdatedAt: prevUpdatedAt } : {}),
+    updatedAt: nextUpdatedAt,
+  });
+}
+
+/** Records the Google event id of a deleted block so the deletion can be pushed. */
+export function withPendingGoogleDelete(current: BlocksPersistedState, externalId: string | undefined): BlocksPersistedState {
+  if (!externalId) return current;
+  const pending = current.pendingGoogleDeletes ?? [];
+  if (pending.includes(externalId)) return current;
+  return { ...current, pendingGoogleDeletes: [...pending, externalId] };
+}
+
 export function deleteBlockOperation(current: BlocksPersistedState, id: string): BlocksPersistedState {
+  const target = current.blocks.find((b) => b.id === id);
   return {
-    ...current,
+    ...withPendingGoogleDelete(current, target?.externalId),
     blocks: current.blocks.filter((b) => b.id !== id),
   };
 }
@@ -157,14 +197,57 @@ export function setAnchorOperation(current: BlocksPersistedState, anchor: string
   };
 }
 
-export function mergeBlocksOperation(
+/**
+ * Imports blocks (e.g. from an .ics file) into the CURRENT state, replacing blocks
+ * that share an id or externalId. Runs inside the serialized mutation so it never
+ * clobbers edits made after the import dialog was opened.
+ */
+export function importBlocksOperation(current: BlocksPersistedState, imported: Block[]): BlocksPersistedState {
+  const blocks = [...current.blocks];
+  for (const raw of imported) {
+    const block = normalizeBlock(raw);
+    const idx = blocks.findIndex((b) => (b.externalId && b.externalId === block.externalId) || b.id === block.id);
+    if (idx >= 0) blocks[idx] = block;
+    else blocks.push(block);
+  }
+  return { ...current, blocks };
+}
+
+/** Merges pulled Google events into the CURRENT blocks (never a stale snapshot). */
+export function mergeGoogleEventsOperation(
   current: BlocksPersistedState,
-  mergedBlocks: Block[],
-  lastSyncedAt?: string,
+  events: GoogleCalendarEvent[],
+  syncedAt: string,
 ): BlocksPersistedState {
   return {
     ...current,
-    blocks: mergedBlocks.map(normalizeBlock),
-    ...(lastSyncedAt ? { lastSyncedAt } : {}),
+    blocks: mergeGoogleEvents(current.blocks, events, current.pendingGoogleDeletes ?? []).map(normalizeBlock),
+    lastSyncedAt: syncedAt,
   };
+}
+
+/** Records push confirmations and clears pushed deletions. */
+export function applyGooglePushOperation(
+  current: BlocksPersistedState,
+  confirmations: GooglePushConfirmation[],
+  deletedExternalIds: string[],
+  syncedAt: string,
+): BlocksPersistedState {
+  const deleted = new Set(deletedExternalIds);
+  const pending = (current.pendingGoogleDeletes ?? []).filter((id) => !deleted.has(id));
+  const { pendingGoogleDeletes: _drop, ...rest } = current;
+  void _drop;
+  return {
+    ...rest,
+    blocks: applyGooglePushResults(current.blocks, confirmations).map(normalizeBlock),
+    ...(pending.length > 0 ? { pendingGoogleDeletes: pending } : {}),
+    lastSyncedAt: syncedAt,
+  };
+}
+
+/** Clears Google link metadata, e.g. after disconnecting. Blocks themselves are kept. */
+export function clearGoogleSyncStateOperation(current: BlocksPersistedState): BlocksPersistedState {
+  const { pendingGoogleDeletes: _drop, ...rest } = current;
+  void _drop;
+  return rest;
 }

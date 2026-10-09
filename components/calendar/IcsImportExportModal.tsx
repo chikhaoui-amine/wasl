@@ -14,7 +14,7 @@ export function IcsImportExportModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { blocks, mergeBlocks } = useBlocksData();
+  const { blocks, importBlocks } = useBlocksData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [importing, setImporting] = useState(false);
@@ -71,19 +71,7 @@ export function IcsImportExportModal({
     if (!parsedBlocks || parsedBlocks.length === 0) return;
     setImporting(true);
     try {
-      const combined = [...blocks];
-      for (const imported of parsedBlocks) {
-        const idx = combined.findIndex(
-          (b) => (b.externalId && b.externalId === imported.externalId) || b.id === imported.id,
-        );
-        if (idx >= 0) {
-          combined[idx] = imported;
-        } else {
-          combined.push(imported);
-        }
-      }
-
-      await mergeBlocks(combined);
+      await importBlocks(parsedBlocks);
       setStatusMessage({
         type: "success",
         text: `Successfully imported ${parsedBlocks.length} event(s) into your calendar!`,

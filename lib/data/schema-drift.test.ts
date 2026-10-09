@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { STORE_KEYS } from "./store-registry";
 import { STORE_STATE_SCHEMAS } from "./validation/domain-schemas";
+import { normalizeBlocksState } from "./domains/blocks/operations";
 import { normalizeTrashState } from "./domains/trash/operations";
 import { DEFAULT_PROGRAMS } from "../health/default-programs";
 
@@ -88,5 +89,40 @@ describe("schema drift: runtime-authored health programs", () => {
       ],
     };
     expect(STORE_STATE_SCHEMAS["lifeos-health"].safeParse(state).success).toBe(true);
+  });
+});
+
+describe("lifeos-blocks schema drift", () => {
+  it("accepts the runtime block shape including sync metadata", () => {
+    const sample = {
+      blocks: [
+        {
+          id: "b1",
+          date: "2026-10-08",
+          start: 9.0,
+          end: 10.5,
+          title: "Team Standup",
+          color: "#7c9cf5",
+          externalId: "gcal_12345",
+          externalProvider: "google" as const,
+          updatedAt: "2026-10-08T08:00:00.000Z",
+          externalUpdatedAt: "2026-10-08T08:00:00.000Z",
+          description: "notes",
+        },
+      ],
+      view: "week" as const,
+      anchor: "2026-10-05",
+      lastSyncedAt: "2026-10-08T08:00:00.000Z",
+      pendingGoogleDeletes: ["gcal_deleted_1"],
+    };
+    const parsed = STORE_STATE_SCHEMAS["lifeos-blocks"].parse(sample) as unknown as {
+      blocks: Array<{ externalUpdatedAt?: string }>;
+      pendingGoogleDeletes?: string[];
+    };
+    expect(parsed.blocks[0].externalUpdatedAt).toBe("2026-10-08T08:00:00.000Z");
+    expect(parsed.pendingGoogleDeletes).toEqual(["gcal_deleted_1"]);
+    const runtime = normalizeBlocksState(sample);
+    expect(runtime.blocks[0].externalUpdatedAt).toBe("2026-10-08T08:00:00.000Z");
+    expect(runtime.pendingGoogleDeletes).toEqual(["gcal_deleted_1"]);
   });
 });

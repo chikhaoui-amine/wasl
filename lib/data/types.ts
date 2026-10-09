@@ -77,6 +77,8 @@ export interface BlocksPersistedState {
   view: "week" | "day";
   anchor: string;
   lastSyncedAt?: string;
+  /** Google event ids of blocks deleted locally whose deletion is not yet pushed (Cloud sync; kept for backup parity). */
+  pendingGoogleDeletes?: string[];
 }
 
 /**

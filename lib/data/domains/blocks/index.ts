@@ -8,7 +8,12 @@ export {
   deleteBlockOperation,
   setViewOperation,
   setAnchorOperation,
-  mergeBlocksOperation,
+  importBlocksOperation,
+  mergeGoogleEventsOperation,
+  applyGooglePushOperation,
+  clearGoogleSyncStateOperation,
+  touchBlock,
+  withPendingGoogleDelete,
   type Block,
   type BlockInput,
 } from "./operations";
