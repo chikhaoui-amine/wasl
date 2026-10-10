@@ -34,6 +34,19 @@
   --color-pastel-lav: var(--pastel-lav);
   --color-pastel-ink: var(--pastel-ink);
 
+  /* Aliases for token names used across components. Without these the
+     utilities (bg-surface-1, text-accent-contrast, …) compiled to nothing:
+     transparent panels and unreadable text on accent buttons. */
+  --color-surface-1: var(--surface);
+  --color-surface-3: var(--surface-hover);
+  --color-surface-4: color-mix(in oklab, var(--surface-hover) 88%, var(--text));
+  --color-hover: var(--surface-hover);
+  --color-card-hover: var(--surface-hover);
+  --color-accent-contrast: var(--accent-fg);
+  --color-accent-foreground: var(--accent-fg);
+  --color-on-accent: var(--accent-fg);
+  --color-accent-hover: color-mix(in oklab, var(--accent) 88%, var(--bg));
+
   --font-display: var(--font-display);
   --font-sans: var(--font-onest);
   --font-mono: var(--font-jetbrains);

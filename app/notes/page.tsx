@@ -345,6 +345,27 @@ export default function NotesPage() {
     }
     return "grid";
   });
+  // "All Pages" can show the connection graph or the same note views as a single page.
+  const [allPagesGraph, setAllPagesGraph] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const saved = sessionStorage.getItem("wasl_notes_all_graph");
+      if (saved === "true" || saved === "false") return saved === "true";
+    } catch {
+      // Ignore storage errors
+    }
+    // The graph is unreadable at phone width; start phones on the grid.
+    return typeof window.matchMedia === "function" ? window.matchMedia("(min-width: 768px)").matches : true;
+  });
+  const showGraph = selectedCategory === "All" && allPagesGraph;
+  const chooseAllPagesGraph = (graph: boolean) => {
+    setAllPagesGraph(graph);
+    try {
+      sessionStorage.setItem("wasl_notes_all_graph", String(graph));
+    } catch {
+      // Ignore storage errors
+    }
+  };
   const [activeSplitNoteId, setActiveSplitNoteId] = useState<string | undefined>();
   const [creatingNote, setCreatingNote] = useState(false);
   const [creatingCategory, setCreatingCategory] = useState(false);
@@ -450,57 +471,50 @@ export default function NotesPage() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-between sm:justify-end">
-            {/* View Mode Toggle Pill: Graph View on All Pages, Grid | Workspace | List on Category Pages */}
-            {selectedCategory === "All" ? (
-              <div className="flex items-center gap-1.5 rounded-full bg-surface-1 border border-border px-3.5 py-1.5 text-xs font-medium text-accent shadow-xs">
-                <Network className="h-3.5 w-3.5" />
-                <span>Graph View</span>
-              </div>
-            ) : (
-              <div className="flex items-center rounded-full bg-surface-1 border border-border p-0.5">
+            {/* View switcher: Graph is offered on All Pages; Grid | Workspace | List everywhere */}
+            <div role="group" aria-label="Notes view" className="flex items-center rounded-full bg-surface-1 border border-border p-0.5">
+              {selectedCategory === "All" && (
                 <button
-                  onClick={() => handleSetViewMode("grid")}
-                  title="Grid View"
+                  onClick={() => chooseAllPagesGraph(true)}
+                  title="Graph View"
+                  aria-pressed={showGraph}
                   className={cn(
                     "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
-                    viewMode === "grid"
-                      ? "bg-surface-2 text-accent shadow-xs"
-                      : "text-faint hover:text-muted",
+                    showGraph ? "bg-surface-2 text-accent shadow-xs" : "text-faint hover:text-muted",
                   )}
                 >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Grid</span>
+                  <Network className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Graph</span>
                 </button>
-
-                <button
-                  onClick={() => handleSetViewMode("split")}
-                  title="Workspace Split View"
-                  className={cn(
-                    "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
-                    viewMode === "split"
-                      ? "bg-surface-2 text-accent shadow-xs"
-                      : "text-faint hover:text-muted",
-                  )}
-                >
-                  <Columns2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Workspace</span>
-                </button>
-
-                <button
-                  onClick={() => handleSetViewMode("list")}
-                  title="List View"
-                  className={cn(
-                    "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
-                    viewMode === "list"
-                      ? "bg-surface-2 text-accent shadow-xs"
-                      : "text-faint hover:text-muted",
-                  )}
-                >
-                  <ListIcon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">List</span>
-                </button>
-              </div>
-            )}
+              )}
+              {(
+                [
+                  { mode: "grid", label: "Grid", title: "Grid View", Icon: LayoutGrid },
+                  { mode: "split", label: "Workspace", title: "Workspace Split View", Icon: Columns2 },
+                  { mode: "list", label: "List", title: "List View", Icon: ListIcon },
+                ] as const
+              ).map(({ mode, label, title, Icon }) => {
+                const active = !showGraph && viewMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => {
+                      if (selectedCategory === "All") chooseAllPagesGraph(false);
+                      handleSetViewMode(mode);
+                    }}
+                    title={title}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all",
+                      active ? "bg-surface-2 text-accent shadow-xs" : "text-faint hover:text-muted",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
             {/* Hidden file input for batch markdown import */}
             <input
@@ -632,8 +646,8 @@ export default function NotesPage() {
           </div>
         </div>
 
-        {/* Multi-View Notes Display: Graph on "All Pages", Grid/Split/List on Category Pages */}
-        {selectedCategory === "All" ? (
+        {/* Multi-View Notes Display: optional Graph on "All Pages", Grid/Split/List otherwise */}
+        {showGraph ? (
           <NotesGraphView
             notes={sorted}
             categories={categories}

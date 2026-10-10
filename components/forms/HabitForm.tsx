@@ -74,7 +74,7 @@ export function HabitForm({
               max={7}
               value={target}
               onChange={(e) => setTarget(Number(e.target.value))}
-              className="flex-1 accent-teal"
+              className="flex-1 accent-accent"
             />
             <span className="font-mono text-sm font-semibold text-text">{target} / 7</span>
           </div>

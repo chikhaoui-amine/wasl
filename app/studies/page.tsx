@@ -82,7 +82,7 @@ export default function StudiesPage() {
 
   return (
     <Hydrate>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="space-y-6">
         {/* Academic Header with profile, semester selector & readiness meter */}
         <AcademicHeader
           profile={profile}

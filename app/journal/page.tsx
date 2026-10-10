@@ -30,6 +30,15 @@ import { Hydrate } from "@/lib/hydration";
 import { fromISO, relLabel, todayISO, toISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
+function journalPrompt(iso: string, today: string) {
+  if (iso === today) return "How was today? Write your thoughts…";
+  const label = relLabel(iso);
+  if (label === "Yesterday") return "What happened yesterday? Write your thoughts…";
+  if (label === "Tomorrow") return "What do you want tomorrow to look like?";
+  if (label.endsWith("ago")) return `What happened ${label}? Write your thoughts…`;
+  return `What happened on ${label}? Write your thoughts…`;
+}
+
 function getMonthDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const startDayOfWeek = firstDay.getDay(); // 0 = Sun
@@ -150,11 +159,6 @@ export default function JournalPage() {
               <div>
                 <h3 className="font-display text-base sm:text-xl font-bold tracking-tight text-text flex items-center gap-2">
                   <span>{relLabel(selectedDate)}</span>
-                  {selectedDate === today && (
-                    <span className="rounded-pill bg-accent/20 px-2.5 py-0.5 text-[11px] font-medium text-accent">
-                      Today
-                    </span>
-                  )}
                 </h3>
                 <p className="text-[12px] sm:text-[13px] text-faint">
                   {fromISO(selectedDate).toLocaleDateString("en-US", {
@@ -294,7 +298,7 @@ export default function JournalPage() {
                 rows={7}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder={`What happened on ${relLabel(selectedDate).toLowerCase()}? Write your thoughts…`}
+                placeholder={journalPrompt(selectedDate, today)}
                 className="w-full min-h-[160px] sm:min-h-[260px] resize-y rounded-[14px] sm:rounded-[16px] bg-surface-2 px-3.5 py-3 sm:px-4 sm:py-3.5 text-[14px] sm:text-[16px] leading-relaxed text-text outline-none focus:ring-2 focus:ring-accent/40 placeholder:text-faint transition-all"
               />
               <div className="flex justify-end">

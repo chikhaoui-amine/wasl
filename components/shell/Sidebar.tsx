@@ -10,7 +10,7 @@ export function Sidebar() {
   const navGroups = NAV;
 
   return (
-    <aside className="rail sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-2 border-r px-3 py-4 md:flex xl:static xl:h-auto xl:rounded-[18px] xl:border">
+    <aside className="rail sticky top-0 hidden h-dvh min-h-0 w-64 shrink-0 flex-col gap-2 border-r px-3 py-4 md:flex xl:static xl:h-auto xl:rounded-[18px] xl:border">
       {/* Sidebar Brand Header */}
       <div className="flex flex-col gap-3 px-1 pt-1 pb-1">
         <Link
@@ -27,11 +27,12 @@ export function Sidebar() {
         <div className="h-px w-full bg-[var(--rail-border)] opacity-80" />
       </div>
 
-      <nav className="flex flex-1 flex-col gap-5 overflow-y-auto pb-4">
+      {/* min-h-0 lets the nav shrink below its content so overflow-y-auto can scroll on short screens */}
+      <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-4 [scrollbar-width:thin]">
         {navGroups.map((group, gi) => (
           <div key={gi} className="flex flex-col gap-1">
             {group.label && (
-              <div className="rail-label mb-1.5 px-3.5 text-[10.5px] font-bold uppercase tracking-[0.2em]">
+              <div className="rail-label mb-1 px-3.5 text-[10.5px] font-bold uppercase tracking-[0.2em]">
                 {group.label}
               </div>
             )}
@@ -46,7 +47,8 @@ export function Sidebar() {
                   key={item.href}
                   href={item.href}
                   data-active={active}
-                  className="rail-item group relative flex items-center gap-3.5 rounded-[10px] px-3.5 py-2.5 text-[15px]"
+                  aria-current={active ? "page" : undefined}
+                  className="rail-item group relative flex items-center gap-3.5 rounded-[10px] px-3.5 py-2 text-[15px]"
                 >
                   {active && (
                     <span className="absolute left-0 top-1/2 h-5 w-[2.5px] -translate-y-1/2 rounded-r-full bg-accent" />

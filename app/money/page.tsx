@@ -125,7 +125,12 @@ export default function MoneyPage() {
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
               title="Currency"
+              aria-label="Display currency"
             >
+              {/* Stored currency may be a custom symbol (e.g. "$"); list it so the select reflects reality. */}
+              {currency !== "DA" && !ALL_CURRENCIES.includes(currency) && (
+                <option value={currency}>{currency}</option>
+              )}
               <option value="DA">DZD (DA)</option>
               {ALL_CURRENCIES.map((c) => (
                 <option key={c} value={c}>

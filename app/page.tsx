@@ -5,6 +5,7 @@ import { greeting } from "@/lib/utils";
 import { TodayTimeline } from "@/components/home/TodayTimeline";
 import { TodayFocus } from "@/components/home/TodayFocus";
 import { HabitsWidget } from "@/components/home/HabitsWidget";
+import { DaySummary } from "@/components/home/DaySummary";
 import { SafeBoundary } from "@/components/ui/SafeBoundary";
 import { Hydrate } from "@/lib/hydration";
 import { todayISO } from "@/lib/date";
@@ -49,6 +50,9 @@ export default function HomePage() {
           <h1 className="relative z-10 mt-0.5 sm:mt-1 font-display text-[19px] sm:text-[28px] md:text-[38px] font-semibold tracking-tight">
             <span className="font-normal text-muted">{greeting()}.</span>
           </h1>
+          <SafeBoundary fallbackTitle="Unable to load today's summary.">
+            <DaySummary date={t} />
+          </SafeBoundary>
         </section>
 
         {/* 3-Column Top Grid: Today's Focus (Tasks) + Habits Today + Today's Plan (Calendar) */}

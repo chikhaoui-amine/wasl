@@ -40,6 +40,8 @@ export function TaskItem({
             className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger"
             style={{ boxShadow: "0 0 6px var(--danger)" }}
             title="High priority"
+            role="img"
+            aria-label="High priority"
           />
         )}
 

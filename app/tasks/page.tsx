@@ -50,7 +50,7 @@ function Group({ title, items, tone }: { title: string; items: Task[]; tone?: "d
       >
         <div className="space-y-0.5">
           {items.map((t) => (
-            <TaskItem key={t.id} task={t} showDue />
+            <TaskItem key={t.id} task={t} showDue={title !== "Today"} />
           ))}
         </div>
       </Card>
@@ -121,12 +121,6 @@ export default function TasksPage() {
   const dueToday = recurring.filter((r) => isOccurrence(r, t));
   const doneToday = dueToday.filter((r) => r.completions[t]).length;
 
-  const legend = [
-    { c: "var(--danger)", l: "High" },
-    { c: "var(--warn)", l: "Medium" },
-    { c: "var(--faint)", l: "Low" },
-  ];
-
   return (
     <Hydrate>
       <div className="space-y-6">
@@ -185,18 +179,9 @@ export default function TasksPage() {
         {/* ---- Daily Tasks tab ---- */}
         {tab === "tasks" && (
           <>
-            <div className="flex items-center gap-4">
-              {legend.map((x) => (
-                <span key={x.l} className="flex items-center gap-1.5 text-[11px] text-faint">
-                  <span className="h-2 w-2 rounded-full" style={{ background: x.c }} />
-                  {x.l}
-                </span>
-              ))}
-            </div>
-
             {groups.overdue.length === 0 && groups.today.length === 0 && doneTodayTasks.length === 0 ? (
               <Card className="p-10 text-center text-sm text-faint">
-                No tasks scheduled for today. Click &quot;New task&quot; to plan your day!
+                No tasks scheduled for today. Use &quot;New task&quot; to plan your day.
               </Card>
             ) : (
               <div className="space-y-7">

@@ -3,7 +3,12 @@ import type { Txn, MonthAgg, Account } from "./types";
 export const fmtMoney = (n: number, currency: string = "DA") => {
   const sign = n < 0 ? "−" : "";
   const absolute = Math.abs(n);
-  const formatted = absolute.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  // Whole amounts stay clean ("7,200"); amounts with cents always show two decimals ("7,294.50").
+  const fractionDigits = Number.isInteger(Math.round(absolute * 100) / 100) ? 0 : 2;
+  const formatted = absolute.toLocaleString("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
   if (currency === "DA") return `${sign}${formatted} DA`;
   // The app supports user-facing symbols (for example "$"), which are not
   // valid ISO-4217 codes for Intl.NumberFormat.

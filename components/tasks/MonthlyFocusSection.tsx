@@ -95,22 +95,21 @@ export function MonthlyFocusSection() {
 
       {/* Monthly Focus To-Do List */}
       {monthlyOutcomes.length === 0 ? (
-        <Card
+        <button
+          type="button"
           onClick={() => {
             setEditingOutcome(undefined);
             setModalOpen(true);
           }}
-          className="p-4 text-center cursor-pointer border-dashed border-border hover:border-accent/40 transition-all group"
+          className="group flex w-full items-center justify-between gap-3 rounded-xl border border-dashed border-border-strong px-3.5 py-2.5 text-left transition-colors hover:border-accent/40 hover:bg-surface-2/40"
         >
-          <div className="flex flex-col items-center justify-center gap-1 text-faint group-hover:text-muted">
-            <p className="text-xs font-medium">
-              No monthly focus tasks for {monthName} yet.
-            </p>
-            <span className="text-[11px] text-accent font-semibold flex items-center gap-0.5">
-              Click to set key monthly goals <ChevronRight className="h-3 w-3" />
-            </span>
-          </div>
-        </Card>
+          <span className="text-xs text-faint group-hover:text-muted">
+            No focus outcomes for {monthName} yet.
+          </span>
+          <span className="flex shrink-0 items-center gap-0.5 text-[11.5px] font-semibold text-accent">
+            Set 1–3 for the month <ChevronRight className="h-3 w-3" />
+          </span>
+        </button>
       ) : (
         <Card className="p-2">
           <div className="space-y-0.5">

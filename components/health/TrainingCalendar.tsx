@@ -158,6 +158,8 @@ export function TrainingCalendar({ onStartWorkoutClick }: TrainingCalendarProps)
                 key={iso}
                 type="button"
                 onClick={() => setSelectedDate(iso)}
+                aria-pressed={isSelected}
+                aria-label={`${iso}${hasLogged ? `, ${dayWorkouts.length} workout${dayWorkouts.length > 1 ? "s" : ""}` : ""}`}
                 className={cn(
                   "h-16 rounded-xl border p-1.5 flex flex-col justify-between transition-all text-left outline-none",
                   isSelected
@@ -201,9 +203,10 @@ export function TrainingCalendar({ onStartWorkoutClick }: TrainingCalendarProps)
                       </div>
                     ))}
                   </div>
-                ) : (
+                ) : iso < t ? (
+                  // Only past days can be rest days; future days stay quiet.
                   <div className="text-[9px] text-faint">Rest</div>
-                )}
+                ) : null}
               </button>
             );
           })}
