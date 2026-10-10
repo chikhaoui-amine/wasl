@@ -69,7 +69,7 @@ export function HabitsWidgetCard({
           </Link>
         </div>
       ) : (
-        <div className="flex-1 space-y-1.5 sm:space-y-2 overflow-y-auto max-h-[480px]">
+        <div className="grid flex-1 grid-cols-1 gap-1.5 overflow-y-auto max-h-[480px] sm:grid-cols-2 sm:gap-2">
           {habits.map((h) => {
             const done = !!h.log?.[today];
             const streak = habitStreak(h);

@@ -143,7 +143,7 @@ export function TodayFocusCard({
 
                 {/* Right: Due label & Pencil */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {task.due && !done && (
+                  {task.due && task.due !== t && !done && (
                     <span
                       className={cn(
                         "text-[11px] font-medium",

@@ -55,17 +55,22 @@ export default function HomePage() {
           </SafeBoundary>
         </section>
 
-        {/* 3-Column Top Grid: Today's Focus (Tasks) + Habits Today + Today's Plan (Calendar) */}
-        <div className="grid grid-cols-1 gap-3.5 sm:gap-5 lg:grid-cols-3">
-          <SafeBoundary fallbackTitle="Unable to load tasks focus.">
-            <TodayFocus date={t} />
-          </SafeBoundary>
-          <SafeBoundary fallbackTitle="Unable to load habits widget.">
-            <HabitsWidget date={t} />
-          </SafeBoundary>
-          <SafeBoundary fallbackTitle="Unable to load calendar timeline.">
-            <TodayTimeline />
-          </SafeBoundary>
+        {/* Tasks and habits share a wide column so titles stay readable; the day's
+            timeline runs alongside at full height. */}
+        <div className="grid grid-cols-1 items-start gap-3.5 sm:gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-3.5 sm:gap-5">
+            <SafeBoundary fallbackTitle="Unable to load tasks focus.">
+              <TodayFocus date={t} />
+            </SafeBoundary>
+            <SafeBoundary fallbackTitle="Unable to load habits widget.">
+              <HabitsWidget date={t} />
+            </SafeBoundary>
+          </div>
+          <div className="min-w-0 lg:sticky lg:top-4">
+            <SafeBoundary fallbackTitle="Unable to load calendar timeline.">
+              <TodayTimeline />
+            </SafeBoundary>
+          </div>
         </div>
       </div>
     </Hydrate>
