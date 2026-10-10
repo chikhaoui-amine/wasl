@@ -652,6 +652,12 @@ body {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+/* Many controls carry `outline-none` for mouse users; keyboard focus on a
+   control must stay visible regardless (focus-visible never fires on click). */
+:is(button, a[href], select, summary, [role="button"], [role="tab"], [tabindex="0"]):focus-visible {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px !important;
+}
 
 /* ---------- motion ---------- */
 @keyframes rise {

@@ -7,6 +7,7 @@ import { BlockForm } from "@/components/forms/BlockForm";
 import { GoogleSyncStatus } from "@/components/calendar/GoogleSyncStatus";
 import { IcsImportExportModal } from "@/components/calendar/IcsImportExportModal";
 import { Hydrate } from "@/lib/hydration";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { addDays, fromISO, todayISO, weekISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import {
@@ -46,11 +47,26 @@ type Draft =
   | null;
 
 export default function CalendarPage() {
-  const { blocks, view, setView, anchor: storeAnchor, setAnchor } = useBlocksData();
+  const {
+    blocks,
+    view: storeView,
+    setView: storeSetView,
+    anchor: storeAnchor,
+    setAnchor: storeSetAnchor,
+  } = useBlocksData();
 
   const t = todayISO();
   const currentWeekStart = weekISO(fromISO(t))[0];
-  const anchor = storeAnchor || currentWeekStart;
+
+  // Seven columns are unreadable at phone width. Phones get their own view
+  // state (Day, starting today) that never writes to the synced store, so
+  // switching on a phone doesn't change the layout on other devices.
+  const isPhone = useMediaQuery("(max-width: 639px)");
+  const [phone, setPhone] = useState<{ view: "week" | "day"; anchor: string }>({ view: "day", anchor: t });
+  const view = isPhone ? phone.view : storeView;
+  const anchor = isPhone ? phone.anchor : storeAnchor || currentWeekStart;
+  const setView = (v: "week" | "day") => (isPhone ? setPhone((p) => ({ ...p, view: v })) : storeSetView(v));
+  const setAnchor = (a: string) => (isPhone ? setPhone((p) => ({ ...p, anchor: a })) : storeSetAnchor(a));
 
   const [creating, setCreating] = useState<{ date: string; start: number; end?: number } | null>(null);
   const [editing, setEditing] = useState<Block | undefined>();
@@ -208,7 +224,7 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <p className="text-center text-[12px] text-faint">
+        <p className="hidden text-center text-[12px] text-faint sm:block">
           Drag on the grid to block out time · drag a block to move it, its edges to resize · Ctrl-drag to copy to another day · click to edit.
         </p>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
@@ -8,6 +8,14 @@ import { getIconComponent, type IconKey } from "@/lib/icons";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Open modals, innermost last. Modals nest (e.g. a detail view opening its
+ * edit form); only the top one may react to Escape / Tab, otherwise one
+ * Escape press closes the whole stack.
+ */
+const modalStack: symbol[] = [];
+const isTopModal = (id: symbol) => modalStack[modalStack.length - 1] === id;
 
 export function Modal(props: {
   open: boolean;
@@ -47,6 +55,21 @@ function ModalInner({
 }: Omit<Parameters<typeof Modal>[0], "open">) {
   const [showConfirmDiscard, setShowConfirmDiscard] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const [stackId] = useState(() => Symbol("modal"));
+  const confirmRef = useRef(false);
+  useEffect(() => {
+    confirmRef.current = showConfirmDiscard;
+  }, [showConfirmDiscard]);
+
+  // Register on the modal stack for this modal's lifetime.
+  useEffect(() => {
+    modalStack.push(stackId);
+    return () => {
+      const i = modalStack.lastIndexOf(stackId);
+      if (i !== -1) modalStack.splice(i, 1);
+    };
+  }, [stackId]);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   // Latest-value refs so once-bound listeners always see current props/state.
   const dirtyRef = useRef(dirty);
@@ -69,10 +92,11 @@ function ModalInner({
   // ONE listener bound for the modal's lifetime.
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        handleAttemptClose();
-      }
+      if (e.key !== "Escape" || !isTopModal(stackId)) return;
+      e.preventDefault();
+      // Escape on the "discard changes?" prompt backs out of the prompt only.
+      if (confirmRef.current) setShowConfirmDiscard(false);
+      else handleAttemptClose();
     };
     document.addEventListener("keydown", onEsc);
     return () => document.removeEventListener("keydown", onEsc);
@@ -101,7 +125,7 @@ function ModalInner({
   // Tab cycling (focus trap)
   useEffect(() => {
     const onTab = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
+      if (e.key !== "Tab" || !isTopModal(stackId)) return;
       const dialogEl = dialogRef.current;
       if (!dialogEl) return;
       const focusable = Array.from(dialogEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
@@ -119,7 +143,7 @@ function ModalInner({
     };
     document.addEventListener("keydown", onTab);
     return () => document.removeEventListener("keydown", onTab);
-  }, []);
+  }, [stackId]);
 
   const sizeMap: Record<string, string> = {
     sm: "max-w-sm",
@@ -158,7 +182,7 @@ function ModalInner({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === "string" ? title : undefined}
+        aria-labelledby={titleId}
         tabIndex={-1}
         initial={{ opacity: 0, y: -10, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -168,7 +192,7 @@ function ModalInner({
         className={`w-full ${widthClass} card-glass rounded-[20px] sm:rounded-[24px] shadow-float relative outline-none`}
       >
         <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5 sm:px-5 sm:py-3.5">
-          <h2 className="font-display text-[14.5px] sm:text-[16px] font-semibold text-text">{title}</h2>
+          <h2 id={titleId} className="font-display text-[14.5px] sm:text-[16px] font-semibold text-text">{title}</h2>
           <button
             type="button"
             onClick={handleAttemptClose}
@@ -253,6 +277,7 @@ export function Segmented<T extends string>({
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
           className={`flex-1 rounded-[9px] px-2 py-1.5 text-[12px] font-medium transition-colors ${
             value === o.value ? "bg-surface text-text shadow-sm" : "text-faint hover:text-muted"
           }`}
