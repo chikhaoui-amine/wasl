@@ -1,174 +1,195 @@
 "use client";
 
-import { Check, Flame, ListTodo } from "lucide-react";
-import {
-  goalProgress,
-  daysLeft,
-  periodLabel,
-  goalYearSpanLabel,
-  trackState,
-  type Goal,
-} from "@/lib/data/domains/goals";
-import { ProgressBar, Pill } from "@/components/ui/primitives";
+import { Check, CircleCheck, Flame, ListTodo, RotateCcw } from "lucide-react";
+import { goalYearSpanLabel, nextMilestone, type Goal } from "@/lib/data/domains/goals";
+import { PaceBar } from "@/components/goals/PaceBar";
+import { goalPace, daysLeftLabel, paceToneClass } from "@/components/goals/pace";
 import { cn } from "@/lib/utils";
 
 interface GoalCardProps {
   goal: Goal;
   northStarMeta?: { id: string; title: string; color?: string };
+  /** Hide the direction label when the card already sits under its direction heading. */
+  showDirection?: boolean;
   linkedTaskCount?: number;
   onOpen: (goal: Goal) => void;
   onToggleMilestone: (goalId: string, milestoneId: string) => void;
+  onToggleFocus?: (goal: Goal) => void;
+  onToggleDone?: (goal: Goal) => void;
   className?: string;
 }
 
 export function GoalCard({
   goal,
   northStarMeta,
+  showDirection = true,
   linkedTaskCount = 0,
   onOpen,
   onToggleMilestone,
+  onToggleFocus,
+  onToggleDone,
   className,
 }: GoalCardProps) {
-  const progress = goalProgress(goal);
-  const left = daysLeft(goal);
-  const track = trackState(goal, progress);
+  const pace = goalPace(goal);
   const milestones = goal.milestones ?? [];
   const doneMilestones = milestones.filter((m) => m.done).length;
+  const next = nextMilestone(goal);
   const yearSpan = goalYearSpanLabel(goal);
-  const nsColor = northStarMeta?.color || "#b57edc";
+  const color = northStarMeta?.color || "var(--accent)";
+  const left = daysLeftLabel(pace.daysLeft);
+  const isDone = pace.tone === "done";
+  const isFocus = goal.isCurrentFocus && !isDone;
 
   return (
-    <div
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={`Open goal ${goal.title}`}
       onClick={() => onOpen(goal)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(goal);
+        }
+      }}
       className={cn(
-        "group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-surface/80 p-4 sm:p-5 transition-all duration-200 hover:border-border-strong hover:bg-surface hover:shadow-md cursor-pointer space-y-3.5",
-        goal.completed && "opacity-75 bg-surface-2/40",
+        "card card-hover group relative flex cursor-pointer flex-col gap-4 overflow-hidden p-4 sm:p-5 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        isDone && "opacity-80",
         className,
       )}
     >
-      {/* Top Meta Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-          {northStarMeta?.title && (
-            <span className="inline-flex items-center gap-1.5 rounded-pill bg-accent-soft/30 px-2 py-0.5 text-[10.5px] font-semibold text-accent border border-accent/20">
-              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: nsColor }} />
-              <span className="truncate max-w-[120px] sm:max-w-[160px]">{northStarMeta.title}</span>
+      {/* Direction hairline */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[2px] opacity-70"
+        style={{ background: `linear-gradient(90deg, ${color}, transparent 70%)` }}
+      />
+
+      {/* Meta row */}
+      <div className="flex min-h-7 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2 text-[11px] font-medium text-muted">
+          {showDirection && northStarMeta?.title && (
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+              <span className="truncate max-w-[160px]">{northStarMeta.title}</span>
             </span>
           )}
-
-          {yearSpan && (
-            <span className="rounded-pill bg-surface-3 px-2 py-0.5 text-[10px] font-bold text-muted border border-border/60">
-              {yearSpan}
-            </span>
-          )}
-
-          {goal.isCurrentFocus && !goal.completed && (
-            <span className="inline-flex items-center gap-1 rounded-pill bg-warn/15 px-2 py-0.5 text-[10px] font-bold text-warn border border-warn/30">
+          {showDirection && northStarMeta?.title && yearSpan && <span className="text-faint">·</span>}
+          {yearSpan && <span className="tabular-nums text-faint">{yearSpan}</span>}
+          {isFocus && (
+            <span className="inline-flex items-center gap-1 rounded-pill bg-warn/12 px-1.5 py-0.5 text-[10.5px] font-semibold text-warn">
               <Flame className="h-3 w-3" /> Focus
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {goal.completed ? (
-            <Pill tone="success">Completed</Pill>
-          ) : goal.status && goal.status !== "active" ? (
-            <span className="rounded-pill bg-surface-3 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted">
-              {goal.status}
-            </span>
-          ) : (
-            <div className="flex items-center gap-1">
-              {track === "behind" && <Pill tone="warn">behind</Pill>}
-              <Pill tone={left !== null && left <= 7 ? "warn" : "neutral"}>
-                {left !== null ? `${left}d left` : periodLabel(goal)}
-              </Pill>
-            </div>
+        {/* Quick actions */}
+        <div className="flex shrink-0 items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+          {onToggleFocus && !isDone && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFocus(goal);
+              }}
+              aria-pressed={!!goal.isCurrentFocus}
+              aria-label={goal.isCurrentFocus ? "Remove from focus" : "Add to focus"}
+              title={goal.isCurrentFocus ? "Remove from focus" : "Add to focus"}
+              className={cn(
+                "grid h-7 w-7 place-items-center rounded-lg transition-colors hover:bg-surface-2 active:scale-95",
+                goal.isCurrentFocus ? "text-warn" : "text-faint hover:text-text",
+              )}
+            >
+              <Flame className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onToggleDone && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleDone(goal);
+              }}
+              aria-label={isDone ? "Reopen goal" : "Mark goal complete"}
+              title={isDone ? "Reopen goal" : "Mark goal complete"}
+              className="grid h-7 w-7 place-items-center rounded-lg text-faint transition-colors hover:bg-surface-2 hover:text-success active:scale-95"
+            >
+              {isDone ? <RotateCcw className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
+            </button>
           )}
         </div>
       </div>
 
-      {/* Main Title & Why */}
-      <div className="space-y-1">
+      {/* Title & why */}
+      <div className="-mt-2 space-y-1.5">
         <h3
           className={cn(
-            "font-display text-base font-bold leading-snug tracking-tight text-text group-hover:text-accent transition-colors",
-            goal.completed && "text-muted line-through",
+            "font-display text-[16px] sm:text-[17px] font-semibold leading-snug tracking-tight text-text [text-wrap:balance]",
+            isDone && "text-muted line-through decoration-faint",
           )}
         >
           {goal.title}
         </h3>
         {goal.why && (
-          <p className="text-xs text-muted line-clamp-2 leading-relaxed">
-            {goal.why}
-          </p>
+          <p className="max-w-[60ch] text-[12.5px] leading-relaxed text-muted line-clamp-2">{goal.why}</p>
         )}
       </div>
 
-      {/* Interactive Milestones List */}
-      {milestones.length > 0 && (
-        <div className="space-y-1.5 rounded-xl border border-border/50 bg-surface-2/50 p-2.5 sm:p-3">
-          <div className="text-[10.5px] font-bold uppercase tracking-wider text-faint">
-            Milestones ({doneMilestones}/{milestones.length})
-          </div>
-          <div className="space-y-1">
-            {milestones.slice(0, 3).map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleMilestone(goal.id, m.id);
-                }}
-                className="group/m flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs transition-colors hover:bg-surface-3/80"
-              >
-                <span
-                  className={cn(
-                    "grid h-4 w-4 shrink-0 place-items-center rounded-[5px] border transition-all",
-                    m.done
-                      ? "border-success bg-success text-bg shadow-xs"
-                      : "border-border-strong text-transparent group-hover/m:border-accent",
-                  )}
-                >
-                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                </span>
-                <span
-                  className={cn(
-                    "truncate flex-1 font-medium",
-                    m.done ? "text-faint line-through" : "text-text",
-                  )}
-                >
-                  {m.title}
-                </span>
-              </button>
-            ))}
-            {milestones.length > 3 && (
-              <div className="pt-0.5 text-center text-[10.5px] font-medium text-accent">
-                +{milestones.length - 3} more milestones
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Next milestone — one tap to tick it off */}
+      {next && !isDone && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleMilestone(goal.id, next.id);
+          }}
+          title="Mark milestone done"
+          className="group/m -mx-1 flex items-center gap-2.5 rounded-xl bg-surface-2/60 px-2.5 py-2 text-left transition-colors hover:bg-surface-2 active:scale-[0.99]"
+        >
+          <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[6px] border border-border-strong text-transparent transition-colors group-hover/m:border-success group-hover/m:text-success">
+            <Check className="h-3 w-3" strokeWidth={3} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-medium uppercase tracking-[0.12em] text-faint">Next up</span>
+            <span className="block truncate text-[12.5px] font-medium text-text">{next.title}</span>
+          </span>
+          <span className="shrink-0 text-[11px] tabular-nums text-faint">
+            {doneMilestones}/{milestones.length}
+          </span>
+        </button>
       )}
 
-      {/* Bottom Progress & Stats */}
-      <div className="space-y-2 pt-1 border-t border-border/40">
-        <div className="flex items-center justify-between text-[11px]">
-          <div className="flex items-center gap-2 text-faint">
-            {milestones.length > 0 ? (
-              <span>{doneMilestones}/{milestones.length} done</span>
-            ) : (
-              <span>Progress</span>
-            )}
+      {/* Progress vs pace */}
+      <div className="mt-auto space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-xl font-semibold tabular-nums tracking-tight text-text">
+              {pace.progress}%
+            </span>
+            <span className={cn("text-[11.5px] font-medium", paceToneClass[pace.tone])}>{pace.label}</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-[11px] text-faint">
             {linkedTaskCount > 0 && (
-              <span className="flex items-center gap-1 text-accent font-medium">
-                <ListTodo className="h-3 w-3" /> {linkedTaskCount} tasks
+              <span className="inline-flex items-center gap-1">
+                <ListTodo className="h-3 w-3" /> {linkedTaskCount} {linkedTaskCount === 1 ? "task" : "tasks"}
               </span>
             )}
+            {!isDone && left && <span className="tabular-nums">{left}</span>}
           </div>
-          <span className="font-mono font-bold text-text tabular-nums">{progress}%</span>
         </div>
-        <ProgressBar value={progress} color="var(--accent)" />
+        <PaceBar
+          value={pace.progress}
+          expected={isDone ? null : pace.elapsed}
+          color={isDone ? "var(--success)" : color}
+          label={`${goal.title} progress`}
+        />
+        {milestones.length > 0 && (isDone || !next) && (
+          <div className="text-[11px] tabular-nums text-faint">
+            {doneMilestones}/{milestones.length} milestones
+          </div>
+        )}
       </div>
-    </div>
+    </article>
   );
 }
