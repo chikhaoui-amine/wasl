@@ -10,9 +10,12 @@ import { cn } from "@/lib/utils";
 export function TaskItem({
   task,
   showDue = false,
+  goalTitle,
 }: {
   task: Task;
   showDue?: boolean;
+  /** Title of the goal this task serves, shown as a quiet second line. */
+  goalTitle?: string;
 }) {
   const { toggleTask } = useTasksData();
   const [editing, setEditing] = useState(false);
@@ -45,14 +48,18 @@ export function TaskItem({
           />
         )}
 
-        <button
-          onClick={() => setEditing(true)}
-          className={cn(
-            "min-w-0 flex-1 truncate text-left text-[13px] sm:text-sm",
-            done ? "text-faint line-through" : "text-text",
+        <button onClick={() => setEditing(true)} className="min-w-0 flex-1 text-left">
+          <span
+            className={cn(
+              "block truncate text-[13px] sm:text-sm",
+              done ? "text-faint line-through" : "text-text",
+            )}
+          >
+            {task.title}
+          </span>
+          {goalTitle && !done && (
+            <span className="block truncate text-[11px] text-faint">→ {goalTitle}</span>
           )}
-        >
-          {task.title}
         </button>
 
         {showDue && task.due && !done && (
