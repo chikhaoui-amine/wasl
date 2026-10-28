@@ -12,9 +12,9 @@ import {
 
 describe("Store Registry", () => {
   it("contains exactly the 11 active domain stores", () => {
-    expect(ACTIVE_STORE_COUNT).toBe(12);
-    expect(STORE_KEYS).toHaveLength(12);
-    expect(Object.keys(STORE_REGISTRY)).toHaveLength(12);
+    expect(ACTIVE_STORE_COUNT).toBe(11);
+    expect(STORE_KEYS).toHaveLength(11);
+    expect(Object.keys(STORE_REGISTRY)).toHaveLength(11);
     expect(STORE_KEYS).toContain("lifeos-notes");
     expect(STORE_KEYS).toContain("lifeos-trash");
     expect(STORE_KEYS).toContain("lifeos-health");

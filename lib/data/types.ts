@@ -1,4 +1,3 @@
-import type { StudiesState } from "./domains/studies/types";
 import type { WaslEdition } from "./edition";
 import type { StoreKey } from "./store-registry";
 
@@ -129,7 +128,6 @@ export interface StoreStateMap {
   "lifeos-habits": HabitsPersistedState;
   "lifeos-money": MoneyPersistedState;
   "lifeos-recurring": RecurringPersistedState;
-  "lifeos-studies": StudiesState;
 }
 
 /**

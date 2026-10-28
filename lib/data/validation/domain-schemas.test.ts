@@ -292,7 +292,7 @@ describe("Domain Validation Schemas (All 11 Active Stores)", () => {
   });
 
   it("has validation registered for all 11 active store keys", () => {
-    expect(STORE_KEYS).toHaveLength(12);
+    expect(STORE_KEYS).toHaveLength(11);
     for (const key of STORE_KEYS) {
       expect(STORE_STATE_SCHEMAS[key as StoreKey]).toBeDefined();
       const res = validateDomainStoreState(key as StoreKey, {});
