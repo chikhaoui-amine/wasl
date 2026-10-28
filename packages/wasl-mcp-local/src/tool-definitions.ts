@@ -626,52 +626,6 @@ const BASE_WASL_TOOLS: ToolDefinition[] = [
     description: "Delete a nested topic note by immutable IDs.",
     schema: z.object({ topicId: z.string().min(1), noteId: z.string().min(1) }),
   },
-  // -------------------------------------------------------------------------
-  // Studies
-  // -------------------------------------------------------------------------
-  {
-    name: "studies_get",
-    description: "Get current academic profile, active semester, overview stats, and absence safety status.",
-    schema: z.object({}),
-  },
-  {
-    name: "studies_modules_list",
-    description: "List modules for the active semester with coefficients and readiness metrics.",
-    schema: z.object({
-      semester: z.string().optional().describe("Optional semester filter (e.g. S1, S2)"),
-    }),
-  },
-  {
-    name: "studies_modules_create",
-    description: "Create a new study module in the active curriculum.",
-    schema: z.object({
-      code: z.string().min(1).describe("Module code (e.g. SFSD, ARCHI2, SE1)"),
-      name: z.string().min(1).describe("Full module title"),
-      semester: z.string().optional().describe("Semester (e.g. S1, S2)"),
-      level: z.string().optional().describe("Academic year/level (e.g. 2CPI, 1CS)"),
-      coefficient: z.number().nonnegative().optional().describe("Module coefficient"),
-      color: z.string().optional().describe("Accent color hex"),
-      icon: z.string().optional().describe("Lucide icon name"),
-    }),
-  },
-  {
-    name: "studies_absence_log",
-    description: "Log an absence for a TD, TP, or Cours session.",
-    schema: z.object({
-      moduleId: z.string().min(1).describe("Module ID"),
-      type: z.enum(["td", "tp", "cours"]).describe("Session type"),
-      date: ISO_DAY.optional().describe("Date of absence in YYYY-MM-DD format"),
-      justified: z.boolean().optional().describe("Whether this absence is justified (exempt from penalty)"),
-      note: z.string().optional().describe("Optional explanation or note"),
-    }),
-  },
-  {
-    name: "studies_checklist_toggle",
-    description: "Toggle completion status of a chapter, TD series, TP, or exam annale.",
-    schema: z.object({
-      itemId: z.string().min(1).describe("Checklist item ID to toggle"),
-    }),
-  },
   {
     name: "search_all",
     description: "Perform a unified search across tasks, notes, goals, and topics in WASL Local.",

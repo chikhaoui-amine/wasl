@@ -3,7 +3,7 @@ import { MCP_DEPRECATED_TOOLS } from "@/packages/wasl-mcp-local/src/tool-catalog
 
 export const MCP_DOMAINS = [
   "tasks", "notes", "goals", "habits", "blocks", "journal",
-  "money", "health", "recurring", "topics", "trash", "studies",
+  "money", "health", "recurring", "topics", "trash",
 ] as const;
 
 export type McpDomain = (typeof MCP_DOMAINS)[number];
@@ -19,7 +19,6 @@ const DOMAIN_STORES: Record<McpDomain, StoreKey> = {
   money: "lifeos-money",
   health: "lifeos-health",
   recurring: "lifeos-recurring",
-  studies: "lifeos-studies",
   topics: "lifeos-topics",
   trash: "lifeos-trash",
 };
@@ -46,7 +45,6 @@ export function mcpToolDomain(toolName: string): McpDomain {
   if (toolName.includes("journal")) return "journal";
   if (toolName.includes("health") || toolName.includes("workout") || toolName.includes("exercise") || toolName.includes("program") || toolName.startsWith("log_sleep") || toolName.startsWith("log_weight")) return "health";
   if (toolName.includes("recurring")) return "recurring";
-  if (toolName.includes("studies")) return "studies";
   if (toolName.includes("trash") || toolName.startsWith("restore_")) return "trash";
   return "tasks";
 }
