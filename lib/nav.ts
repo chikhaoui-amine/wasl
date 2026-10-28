@@ -4,7 +4,6 @@ import {
   ListChecks,
   CalendarDays,
   NotebookText,
-  GraduationCap,
   BookOpen,
   PenLine,
   Repeat,
@@ -54,7 +53,6 @@ export const NAV: NavGroup[] = [
     label: "Knowledge",
     items: [
       { label: "Notes", href: "/notes", icon: NotebookText, status: "live", hint: "Your second brain" },
-      { label: "Studies", href: "/studies", icon: GraduationCap, status: "live", hint: "Academic tracking, roadmap & attendance" },
       { label: "Learning", href: "/learning", icon: BookOpen, status: "live", hint: "A page per topic you're studying" },
     ],
   },
