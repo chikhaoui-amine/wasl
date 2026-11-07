@@ -78,7 +78,7 @@ describe("precache manifest generation", () => {
     expect(routes).toEqual(["/", "/preview", "/settings"]);
   });
 
-  it("throws when BUILD_ID is missing", () => {
+  it("throws when the build produced no assets", () => {
     fs.mkdirSync(path.join(fixtureRoot, ".next"), { recursive: true });
     expect(() =>
       collectPrecacheManifest({
@@ -86,5 +86,24 @@ describe("precache manifest generation", () => {
         nextDir: path.join(fixtureRoot, ".next"),
       }),
     ).toThrow();
+  });
+
+  it("works mid-build: no BUILD_ID or prerender manifest yet (hash id, literal static params)", () => {
+    writeFile(".next", "static", "chunks", "main-abc.js");
+    writeFile("app", "page.tsx");
+    fs.mkdirSync(path.join(fixtureRoot, "app", "learning", "[topicId]"), { recursive: true });
+    fs.writeFileSync(
+      path.join(fixtureRoot, "app", "learning", "[topicId]", "page.tsx"),
+      'export function generateStaticParams() {\n  return [{ topicId: "default" }];\n}\n',
+    );
+
+    const manifest = collectPrecacheManifest({
+      appDir: path.join(fixtureRoot, "app"),
+      nextDir: path.join(fixtureRoot, ".next"),
+    });
+
+    expect(manifest.buildId).toMatch(/^[0-9a-f]{20}$/);
+    expect(manifest.assets).toEqual(["/_next/static/chunks/main-abc.js"]);
+    expect(manifest.routes).toEqual(["/", "/learning/default"]);
   });
 });
