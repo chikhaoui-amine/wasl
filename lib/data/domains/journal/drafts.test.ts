@@ -27,6 +27,10 @@ import {
   saveJournalDraft,
   clearJournalDraft,
   hasJournalDraft,
+  getJournalEditDraftKey,
+  loadJournalEditDraft,
+  saveJournalEditDraft,
+  clearJournalEditDraft,
 } from "./drafts";
 
 describe("journal drafts persistence", () => {
@@ -67,5 +71,21 @@ describe("journal drafts persistence", () => {
 
     saveJournalDraft("2026-11-09", { body: "   \n  ", mood: "good" });
     expect(hasJournalDraft("2026-11-09")).toBe(false);
+  });
+});
+
+describe("journal edit drafts persistence", () => {
+  it("saves, loads, and clears edit drafts by entry ID", () => {
+    const entryId = "entry-123";
+    expect(getJournalEditDraftKey(entryId)).toBe("wasl_journal_edit_entry-123");
+    expect(loadJournalEditDraft(entryId)).toBeNull();
+
+    saveJournalEditDraft(entryId, { body: "Edited body text", mood: "rough" });
+    const loaded = loadJournalEditDraft(entryId);
+    expect(loaded?.body).toBe("Edited body text");
+    expect(loaded?.mood).toBe("rough");
+
+    clearJournalEditDraft(entryId);
+    expect(loadJournalEditDraft(entryId)).toBeNull();
   });
 });

@@ -13,6 +13,8 @@ import {
   Bold,
   List,
   Check,
+  Trash2,
+  X,
 } from "lucide-react";
 import {
   useJournalData,
@@ -24,11 +26,13 @@ import {
   saveJournalDraft,
   clearJournalDraft,
   hasJournalDraft,
+  loadJournalEditDraft,
+  saveJournalEditDraft,
+  clearJournalEditDraft,
   type JournalEntry,
   type Mood,
 } from "@/lib/data/domains/journal";
 import { Card, SectionTitle } from "@/components/ui/primitives";
-import { Modal, Field, FormFooter, inputCls } from "@/components/ui/Modal";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { applyEditorFormatting } from "@/lib/editor-formatting";
 import { Hydrate } from "@/lib/hydration";
@@ -72,7 +76,7 @@ function getMonthDays(year: number, month: number) {
 }
 
 export default function JournalPage() {
-  const { entries, addEntry } = useJournalData();
+  const { entries, addEntry, updateEntry, deleteEntry } = useJournalData();
   const today = todayISO();
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
@@ -86,12 +90,13 @@ export default function JournalPage() {
   const [body, setBody] = useState(() => {
     return loadJournalDraft(today)?.body ?? "";
   });
-  const [editing, setEditing] = useState<JournalEntry | undefined>();
+  const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Synchronize draft when selectedDate changes
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
+    setEditingEntry(null);
     const draft = loadJournalDraft(selectedDate);
     if (draft) {
       setBody(draft.body);
@@ -107,27 +112,96 @@ export default function JournalPage() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (body.trim()) {
-        saveJournalDraft(selectedDate, { body, mood });
+        if (editingEntry) {
+          saveJournalEditDraft(editingEntry.id, { body, mood });
+        } else {
+          saveJournalDraft(selectedDate, { body, mood });
+        }
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [body, mood, selectedDate]);
+  }, [body, mood, selectedDate, editingEntry]);
+
+  const startEditing = (entry: JournalEntry) => {
+    if (!editingEntry && body.trim()) {
+      saveJournalDraft(selectedDate, { body, mood });
+    }
+    const editDraft = loadJournalEditDraft(entry.id);
+    const initialBody = editDraft?.body ?? entry.body;
+    const initialMood = editDraft?.mood ?? entry.mood;
+
+    setEditingEntry(entry);
+    setBody(initialBody);
+    setMood(initialMood);
+
+    requestAnimationFrame(() => {
+      if (composerTextareaRef.current) {
+        composerTextareaRef.current.focus();
+        composerTextareaRef.current.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      }
+    });
+  };
+
+  const cancelEditing = () => {
+    if (editingEntry) {
+      clearJournalEditDraft(editingEntry.id);
+    }
+    setEditingEntry(null);
+    const dayDraft = loadJournalDraft(selectedDate);
+    if (dayDraft) {
+      setBody(dayDraft.body);
+      setMood(dayDraft.mood);
+    } else {
+      setBody("");
+      setMood("good");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingEntry) return;
+    const id = editingEntry.id;
+    clearJournalEditDraft(id);
+    setEditingEntry(null);
+    await deleteEntry(id);
+    const dayDraft = loadJournalDraft(selectedDate);
+    if (dayDraft) {
+      setBody(dayDraft.body);
+      setMood(dayDraft.mood);
+    } else {
+      setBody("");
+      setMood("good");
+    }
+  };
 
   const handleBodyChange = (newBody: string) => {
     setBody(newBody);
-    saveJournalDraft(selectedDate, { body: newBody, mood });
+    if (editingEntry) {
+      saveJournalEditDraft(editingEntry.id, { body: newBody, mood });
+    } else {
+      saveJournalDraft(selectedDate, { body: newBody, mood });
+    }
   };
 
   const handleMoodChange = (newMood: Mood) => {
     setMood(newMood);
-    saveJournalDraft(selectedDate, { body, mood: newMood });
+    if (editingEntry) {
+      saveJournalEditDraft(editingEntry.id, { body, mood: newMood });
+    } else {
+      saveJournalDraft(selectedDate, { body, mood: newMood });
+    }
   };
 
   const handleDiscard = () => {
-    clearJournalDraft(selectedDate);
-    setBody("");
-    setMood("good");
+    if (editingEntry) {
+      clearJournalEditDraft(editingEntry.id);
+      setBody(editingEntry.body);
+      setMood(editingEntry.mood);
+    } else {
+      clearJournalDraft(selectedDate);
+      setBody("");
+      setMood("good");
+    }
   };
 
   const hasDraftForDay = (iso: string) => {
@@ -184,7 +258,11 @@ export default function JournalPage() {
       suffix,
     );
     setBody(newText);
-    saveJournalDraft(selectedDate, { body: newText, mood });
+    if (editingEntry) {
+      saveJournalEditDraft(editingEntry.id, { body: newText, mood });
+    } else {
+      saveJournalDraft(selectedDate, { body: newText, mood });
+    }
     requestAnimationFrame(() => {
       if (textarea) {
         textarea.focus();
@@ -193,11 +271,26 @@ export default function JournalPage() {
     });
   };
 
-  const save = () => {
+  const save = async () => {
     if (!body.trim()) return;
-    addEntry(mood, body.trim(), selectedDate);
-    clearJournalDraft(selectedDate);
-    setBody("");
+    if (editingEntry) {
+      const id = editingEntry.id;
+      await updateEntry(id, { mood, body: body.trim() });
+      clearJournalEditDraft(id);
+      setEditingEntry(null);
+      const dayDraft = loadJournalDraft(selectedDate);
+      if (dayDraft) {
+        setBody(dayDraft.body);
+        setMood(dayDraft.mood);
+      } else {
+        setBody("");
+        setMood("good");
+      }
+    } else {
+      await addEntry(mood, body.trim(), selectedDate);
+      clearJournalDraft(selectedDate);
+      setBody("");
+    }
   };
 
   const monthName = new Date(calendarYear, calendarMonth, 1).toLocaleDateString("en-US", {
@@ -242,18 +335,35 @@ export default function JournalPage() {
                 {selectedEntries.map((e) => {
                   const moodMeta = getMoodMeta(e.mood);
                   const MoodIcon = moodMeta.icon;
+                  const isEditingThis = editingEntry?.id === e.id;
                   return (
-                    <Card key={e.id} hover className="group p-3 sm:p-4 border border-border/80 bg-surface">
+                    <Card
+                      key={e.id}
+                      hover
+                      className={cn(
+                        "group p-3 sm:p-4 border bg-surface transition-all",
+                        isEditingThis
+                          ? "border-accent ring-1 ring-accent/30 bg-accent-soft/10"
+                          : "border-border/80",
+                      )}
+                    >
                       <div className="mb-2 flex items-center justify-between">
-                        <span
-                          className="inline-flex items-center gap-1.5 rounded-pill px-2 py-0.5 sm:px-2.5 text-[11px] sm:text-[12px] font-medium"
-                          style={{
-                            background: `color-mix(in oklab, ${moodMeta.color} 14%, transparent)`,
-                            color: moodMeta.color,
-                          }}
-                        >
-                          <MoodIcon className="h-3.5 w-3.5" /> {moodMeta.label}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-pill px-2 py-0.5 sm:px-2.5 text-[11px] sm:text-[12px] font-medium"
+                            style={{
+                              background: `color-mix(in oklab, ${moodMeta.color} 14%, transparent)`,
+                              color: moodMeta.color,
+                            }}
+                          >
+                            <MoodIcon className="h-3.5 w-3.5" /> {moodMeta.label}
+                          </span>
+                          {isEditingThis && (
+                            <span className="rounded-pill bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">
+                              Editing below
+                            </span>
+                          )}
+                        </div>
                         <span className="flex items-center gap-2">
                           <span className="tabular text-[11px] sm:text-[12px] text-faint">
                             {new Date(e.createdAt).toLocaleTimeString("en-US", {
@@ -263,7 +373,7 @@ export default function JournalPage() {
                             })}
                           </span>
                           <button
-                            onClick={() => setEditing(e)}
+                            onClick={() => startEditing(e)}
                             aria-label="Edit entry"
                             className="grid h-6 w-6 place-items-center rounded-md text-faint opacity-70 transition-opacity hover:bg-surface-2 hover:text-muted sm:opacity-0 sm:group-hover:opacity-100"
                           >
@@ -280,9 +390,24 @@ export default function JournalPage() {
 
             {/* Inline Writer for Selected Date */}
             <div className="space-y-3.5 sm:space-y-4 pt-1 sm:pt-2">
-              <SectionTitle>
-                {selectedEntries.length > 0 ? "Add another entry" : "Write journal entry"}
-              </SectionTitle>
+              <div className="flex items-center justify-between">
+                <SectionTitle>
+                  {editingEntry
+                    ? "Editing entry"
+                    : selectedEntries.length > 0
+                      ? "Add another entry"
+                      : "Write journal entry"}
+                </SectionTitle>
+                {editingEntry && (
+                  <button
+                    type="button"
+                    onClick={cancelEditing}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] sm:text-xs font-medium text-faint hover:text-text hover:bg-surface-2 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" /> Cancel edit
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {MOOD_ORDER.map((m) => {
                   const MoodIcon = MOOD_META[m].icon;
@@ -362,19 +487,34 @@ export default function JournalPage() {
               />
               <div className="flex items-center justify-between pt-1">
                 <div className="flex items-center gap-2">
-                  {body.trim().length > 0 && (
+                  {editingEntry ? (
                     <>
-                      <span className="flex items-center gap-1 text-[11px] sm:text-xs text-faint">
-                        <Check className="h-3.5 w-3.5 text-accent" /> Draft saved
-                      </span>
                       <button
                         type="button"
-                        onClick={handleDiscard}
-                        className="text-[11px] sm:text-xs text-faint transition-colors hover:text-danger hover:underline ml-1"
+                        onClick={handleDelete}
+                        className="flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-danger transition-colors hover:bg-danger/20"
                       >
-                        Discard
+                        <Trash2 className="h-3.5 w-3.5" /> Delete entry
                       </button>
+                      <span className="flex items-center gap-1 text-[11px] sm:text-xs text-faint ml-1">
+                        <Check className="h-3.5 w-3.5 text-accent" /> Draft saved
+                      </span>
                     </>
+                  ) : (
+                    body.trim().length > 0 && (
+                      <>
+                        <span className="flex items-center gap-1 text-[11px] sm:text-xs text-faint">
+                          <Check className="h-3.5 w-3.5 text-accent" /> Draft saved
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleDiscard}
+                          className="text-[11px] sm:text-xs text-faint transition-colors hover:text-danger hover:underline ml-1"
+                        >
+                          Discard
+                        </button>
+                      </>
+                    )
                   )}
                 </div>
                 <button
@@ -382,7 +522,7 @@ export default function JournalPage() {
                   disabled={!body.trim()}
                   className="btn-hero flex items-center gap-2 rounded-full px-4 py-2 sm:px-5 sm:py-2.5 text-[13px] sm:text-[14px] font-semibold disabled:opacity-40"
                 >
-                  <PenLine className="h-4 w-4" /> Save entry
+                  <PenLine className="h-4 w-4" /> {editingEntry ? "Save changes" : "Save entry"}
                 </button>
               </div>
             </div>
@@ -516,138 +656,7 @@ export default function JournalPage() {
           </Card>
         </div>
       </div>
-
-      <EditEntryModal key={editing?.id ?? "none"} entry={editing} onClose={() => setEditing(undefined)} />
     </Hydrate>
-  );
-}
-
-function EditEntryModal({ entry, onClose }: { entry?: JournalEntry; onClose: () => void }) {
-  const { updateEntry, deleteEntry } = useJournalData();
-  const [mood, setMood] = useState<Mood>(entry?.mood ?? "good");
-  const [body, setBody] = useState(entry?.body ?? "");
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const applyFormat = (prefix: string, suffix: string = "") => {
-    const textarea = editTextareaRef.current;
-    const { newText, selectionStart, selectionEnd } = applyEditorFormatting(
-      textarea,
-      body,
-      prefix,
-      suffix,
-    );
-    setBody(newText);
-    requestAnimationFrame(() => {
-      if (textarea) {
-        textarea.focus();
-        textarea.setSelectionRange(selectionStart, selectionEnd);
-      }
-    });
-  };
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!entry || !body.trim()) return;
-    updateEntry(entry.id, { mood, body: body.trim() });
-    onClose();
-  };
-
-  return (
-    <Modal open={!!entry} onClose={onClose} title="Edit entry" wide>
-      <form onSubmit={submit} className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          {MOOD_ORDER.map((m) => {
-            const MoodIcon = MOOD_META[m].icon;
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMood(m)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-medium transition-colors",
-                  mood === m
-                    ? "border-transparent bg-accent-soft text-accent"
-                    : "border-border text-muted hover:bg-surface-hover",
-                )}
-              >
-                <MoodIcon className="h-3.5 w-3.5" style={{ color: MOOD_META[m].color }} />
-                {MOOD_META[m].label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Formatting Toolbar */}
-        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border/80 bg-surface-2/60 p-1.5 text-xs">
-          <button
-            type="button"
-            onClick={() => applyFormat("# ")}
-            title="Heading 1 (#)"
-            className="flex h-7 w-7 items-center justify-center rounded-md font-bold text-muted hover:bg-surface-hover hover:text-text transition-colors"
-          >
-            <Heading1 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => applyFormat("## ")}
-            title="Heading 2 (##)"
-            className="flex h-7 w-7 items-center justify-center rounded-md font-semibold text-muted hover:bg-surface-hover hover:text-text transition-colors"
-          >
-            <Heading2 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => applyFormat("### ")}
-            title="Heading 3 (###)"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text transition-colors"
-          >
-            <Heading3 className="h-3.5 w-3.5" />
-          </button>
-
-          <div className="h-4 w-px bg-border/80 mx-0.5" />
-
-          <button
-            type="button"
-            onClick={() => applyFormat("**", "**")}
-            title="Bold (**text**)"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text transition-colors"
-          >
-            <Bold className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => applyFormat("- ")}
-            title="Bulleted List (- item)"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-text transition-colors"
-          >
-            <List className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <Field label="Entry">
-          <textarea
-            ref={editTextareaRef}
-            rows={5}
-            dir="auto"
-            className={`${inputCls} resize-y font-normal`}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
-        </Field>
-        <FormFooter
-          submitLabel="Save changes"
-          disabled={!body.trim()}
-          onDelete={
-            entry
-              ? () => {
-                  deleteEntry(entry.id);
-                  onClose();
-                }
-              : undefined
-          }
-        />
-      </form>
-    </Modal>
   );
 }
 

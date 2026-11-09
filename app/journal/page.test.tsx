@@ -142,7 +142,7 @@ describe("JournalPage Header Controls & Markdown", () => {
     });
   });
 
-  it("opens edit modal and formats text inside edit modal", async () => {
+  it("edits an entry inline in the main composer instead of opening a modal", async () => {
     const today = todayISO();
     await adapter.initialize();
     await adapter.putStore({
@@ -154,7 +154,7 @@ describe("JournalPage Header Controls & Markdown", () => {
             id: "entry-1",
             date: today,
             mood: "good",
-            body: "Initial text",
+            body: "Initial text to edit",
             createdAt: Date.now(),
           },
         ],
@@ -166,7 +166,99 @@ describe("JournalPage Header Controls & Markdown", () => {
     const editBtn = await screen.findByLabelText("Edit entry");
     fireEvent.click(editBtn);
 
-    expect(screen.getByText("Edit entry")).toBeDefined();
+    // Verify modal is NOT opened, but composer switched to inline edit mode
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText(/Editing entry/i)).toBeDefined();
+    expect(screen.getByText(/Editing below/i)).toBeDefined();
+
+    const textarea = screen.getByPlaceholderText(/Write your thoughts/i) as HTMLTextAreaElement;
+    expect(textarea.value).toBe("Initial text to edit");
+
+    // Modify text and save changes
+    fireEvent.change(textarea, { target: { value: "Updated inline text" } });
+    const saveChangesBtn = screen.getByRole("button", { name: /Save changes/i });
+    fireEvent.click(saveChangesBtn);
+
+    await waitFor(() => {
+      const rendered = screen.getByTestId("markdown-content");
+      expect(rendered.textContent).toContain("Updated inline text");
+    });
+
+    // Form returns to default composer mode
+    expect(screen.queryByText(/Editing entry/i)).toBeNull();
+    expect(textarea.value).toBe("");
+  });
+
+  it("cancels inline editing and restores previous state", async () => {
+    const today = todayISO();
+    await adapter.initialize();
+    await adapter.putStore({
+      store: "lifeos-journal",
+      version: 2,
+      state: {
+        entries: [
+          {
+            id: "entry-1",
+            date: today,
+            mood: "good",
+            body: "Original text",
+            createdAt: Date.now(),
+          },
+        ],
+      },
+      updatedAt: new Date().toISOString(),
+    });
+
+    renderWithProviders(<JournalPage />);
+    const textarea = (await screen.findByPlaceholderText(/Write your thoughts/i)) as HTMLTextAreaElement;
+    // User had a new draft
+    fireEvent.change(textarea, { target: { value: "My in-flight draft" } });
+
+    // Click edit on existing entry
+    const editBtn = screen.getByLabelText("Edit entry");
+    fireEvent.click(editBtn);
+    expect(textarea.value).toBe("Original text");
+
+    // Click cancel
+    const cancelBtn = screen.getByRole("button", { name: /Cancel edit/i });
+    fireEvent.click(cancelBtn);
+
+    // Composer restores previous in-flight draft
+    expect(screen.queryByText(/Editing entry/i)).toBeNull();
+    expect(textarea.value).toBe("My in-flight draft");
+  });
+
+  it("deletes entry from the inline composer action bar", async () => {
+    const today = todayISO();
+    await adapter.initialize();
+    await adapter.putStore({
+      store: "lifeos-journal",
+      version: 2,
+      state: {
+        entries: [
+          {
+            id: "entry-1",
+            date: today,
+            mood: "good",
+            body: "To be deleted",
+            createdAt: Date.now(),
+          },
+        ],
+      },
+      updatedAt: new Date().toISOString(),
+    });
+
+    renderWithProviders(<JournalPage />);
+    const editBtn = await screen.findByLabelText("Edit entry");
+    fireEvent.click(editBtn);
+
+    const deleteBtn = screen.getByRole("button", { name: /Delete entry/i });
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText("To be deleted")).toBeNull();
+    });
+    expect(screen.queryByText(/Editing entry/i)).toBeNull();
   });
 
   it("auto-saves typed text as a draft to localStorage", async () => {
@@ -213,8 +305,8 @@ describe("JournalPage Header Controls & Markdown", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Entry to save permanently")).toBeDefined();
+      expect(testLocalStorage.getItem(`wasl_journal_draft_${todayISO()}`)).toBeNull();
     });
-    expect(testLocalStorage.getItem(`wasl_journal_draft_${todayISO()}`)).toBeNull();
   });
 
   it("shows unsaved draft indicator on the calendar for days with drafts", async () => {
