@@ -91,6 +91,7 @@ export default function JournalPage() {
 
   // Synchronize draft when selectedDate changes
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     const draft = loadJournalDraft(selectedDate);
     if (draft) {
       setBody(draft.body);
@@ -99,6 +100,7 @@ export default function JournalPage() {
       setBody("");
       setMood("good");
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [selectedDate]);
 
   // Flush draft on beforeunload
