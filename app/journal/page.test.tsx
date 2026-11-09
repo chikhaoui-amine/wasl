@@ -215,7 +215,7 @@ describe("JournalPage Header Controls & Markdown", () => {
     fireEvent.change(textarea, { target: { value: "My in-flight draft" } });
 
     // Click edit on existing entry
-    const editBtn = screen.getByLabelText("Edit entry");
+    const editBtn = await screen.findByLabelText("Edit entry");
     fireEvent.click(editBtn);
     expect(textarea.value).toBe("Original text");
 
