@@ -3,6 +3,27 @@ import "fake-indexeddb/auto";
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+const { testLocalStorage } = vi.hoisted(() => {
+  const storageValues = new Map<string, string>();
+  const storage: Storage = {
+    get length() {
+      return storageValues.size;
+    },
+    clear: () => storageValues.clear(),
+    getItem: (key) => storageValues.get(key) ?? null,
+    key: (index) => [...storageValues.keys()][index] ?? null,
+    removeItem: (key) => {
+      storageValues.delete(key);
+    },
+    setItem: (key, value) => {
+      storageValues.set(key, value);
+    },
+  };
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
+  return { testLocalStorage: storage };
+});
+
 import { LocalAdapter } from "@/lib/data/adapters/local/local-adapter";
 import { DataProvider, createMemoryQueryClient } from "@/lib/data/query/provider";
 import JournalPage from "./page";
@@ -48,12 +69,14 @@ describe("JournalPage Header Controls & Markdown", () => {
   let queryClient: ReturnType<typeof createMemoryQueryClient>;
 
   beforeEach(() => {
+    testLocalStorage.clear();
     adapter = new LocalAdapter({ databaseName: `journal-page-test-${Date.now()}-${Math.random()}` });
     queryClient = createMemoryQueryClient();
   });
 
   afterEach(async () => {
     cleanup();
+    queryClient.clear();
     await adapter.close();
   });
 
@@ -144,5 +167,64 @@ describe("JournalPage Header Controls & Markdown", () => {
     fireEvent.click(editBtn);
 
     expect(screen.getByText("Edit entry")).toBeDefined();
+  });
+
+  it("auto-saves typed text as a draft to localStorage", async () => {
+    renderWithProviders(<JournalPage />);
+    const textarea = (await screen.findByPlaceholderText(/Write your thoughts/i)) as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "Today was an intense coding session." } });
+
+    expect(screen.getByText(/Draft saved/i)).toBeDefined();
+    const rawDraft = testLocalStorage.getItem(`wasl_journal_draft_${todayISO()}`);
+    expect(rawDraft).toContain("Today was an intense coding session.");
+  });
+
+  it("restores draft when opening or switching calendar dates", async () => {
+    testLocalStorage.setItem(
+      `wasl_journal_draft_${todayISO()}`,
+      JSON.stringify({ body: "Saved draft for today", mood: "great", updatedAt: Date.now() }),
+    );
+
+    renderWithProviders(<JournalPage />);
+    const textarea = (await screen.findByPlaceholderText(/Write your thoughts/i)) as HTMLTextAreaElement;
+    expect(textarea.value).toBe("Saved draft for today");
+  });
+
+  it("clears draft from localStorage and composer when discard is clicked", async () => {
+    renderWithProviders(<JournalPage />);
+    const textarea = (await screen.findByPlaceholderText(/Write your thoughts/i)) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "Draft to discard" } });
+
+    const discardBtn = screen.getByRole("button", { name: /Discard/i });
+    fireEvent.click(discardBtn);
+
+    expect(textarea.value).toBe("");
+    expect(testLocalStorage.getItem(`wasl_journal_draft_${todayISO()}`)).toBeNull();
+  });
+
+  it("clears draft from localStorage when entry is saved", async () => {
+    renderWithProviders(<JournalPage />);
+    const textarea = (await screen.findByPlaceholderText(/Write your thoughts/i)) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "Entry to save permanently" } });
+
+    const saveBtn = screen.getByRole("button", { name: /Save entry/i });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Entry to save permanently")).toBeDefined();
+    });
+    expect(testLocalStorage.getItem(`wasl_journal_draft_${todayISO()}`)).toBeNull();
+  });
+
+  it("shows unsaved draft indicator on the calendar for days with drafts", async () => {
+    testLocalStorage.setItem(
+      `wasl_journal_draft_2026-11-15`,
+      JSON.stringify({ body: "Future reflection", mood: "good", updatedAt: Date.now() }),
+    );
+
+    renderWithProviders(<JournalPage />);
+
+    expect(await screen.findByTitle("Unsaved draft")).toBeDefined();
   });
 });

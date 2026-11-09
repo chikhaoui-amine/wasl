@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -12,6 +12,7 @@ import {
   Heading3,
   Bold,
   List,
+  Check,
 } from "lucide-react";
 import {
   useJournalData,
@@ -19,6 +20,10 @@ import {
   MOOD_META,
   MOOD_ORDER,
   getMoodMeta,
+  loadJournalDraft,
+  saveJournalDraft,
+  clearJournalDraft,
+  hasJournalDraft,
   type JournalEntry,
   type Mood,
 } from "@/lib/data/domains/journal";
@@ -75,10 +80,60 @@ export default function JournalPage() {
   const [calendarYear, setCalendarYear] = useState(initialDateObj.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(initialDateObj.getMonth());
 
-  const [mood, setMood] = useState<Mood>("good");
-  const [body, setBody] = useState("");
+  const [mood, setMood] = useState<Mood>(() => {
+    return loadJournalDraft(today)?.mood ?? "good";
+  });
+  const [body, setBody] = useState(() => {
+    return loadJournalDraft(today)?.body ?? "";
+  });
   const [editing, setEditing] = useState<JournalEntry | undefined>();
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Synchronize draft when selectedDate changes
+  useEffect(() => {
+    const draft = loadJournalDraft(selectedDate);
+    if (draft) {
+      setBody(draft.body);
+      setMood(draft.mood);
+    } else {
+      setBody("");
+      setMood("good");
+    }
+  }, [selectedDate]);
+
+  // Flush draft on beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (body.trim()) {
+        saveJournalDraft(selectedDate, { body, mood });
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [body, mood, selectedDate]);
+
+  const handleBodyChange = (newBody: string) => {
+    setBody(newBody);
+    saveJournalDraft(selectedDate, { body: newBody, mood });
+  };
+
+  const handleMoodChange = (newMood: Mood) => {
+    setMood(newMood);
+    saveJournalDraft(selectedDate, { body, mood: newMood });
+  };
+
+  const handleDiscard = () => {
+    clearJournalDraft(selectedDate);
+    setBody("");
+    setMood("good");
+  };
+
+  const hasDraftForDay = (iso: string) => {
+    if (iso === selectedDate) {
+      return body.trim().length > 0;
+    }
+    return hasJournalDraft(iso);
+  };
 
   const dist = moodDistribution(entries);
   const maxDist = Math.max(...MOOD_ORDER.map((m) => dist[m]), 1);
@@ -127,6 +182,7 @@ export default function JournalPage() {
       suffix,
     );
     setBody(newText);
+    saveJournalDraft(selectedDate, { body: newText, mood });
     requestAnimationFrame(() => {
       if (textarea) {
         textarea.focus();
@@ -138,6 +194,7 @@ export default function JournalPage() {
   const save = () => {
     if (!body.trim()) return;
     addEntry(mood, body.trim(), selectedDate);
+    clearJournalDraft(selectedDate);
     setBody("");
   };
 
@@ -230,7 +287,7 @@ export default function JournalPage() {
                   return (
                     <button
                       key={m}
-                      onClick={() => setMood(m)}
+                      onClick={() => handleMoodChange(m)}
                       className={cn(
                         "flex items-center gap-1.5 rounded-pill border px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[12px] sm:text-[13px] font-medium transition-all",
                         mood === m
@@ -297,11 +354,27 @@ export default function JournalPage() {
                 dir="auto"
                 rows={7}
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={(e) => handleBodyChange(e.target.value)}
                 placeholder={journalPrompt(selectedDate, today)}
                 className="w-full min-h-[160px] sm:min-h-[260px] resize-y rounded-[14px] sm:rounded-[16px] bg-surface-2 px-3.5 py-3 sm:px-4 sm:py-3.5 text-[14px] sm:text-[16px] leading-relaxed text-text outline-none focus:ring-2 focus:ring-accent/40 placeholder:text-faint transition-all"
               />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2">
+                  {body.trim().length > 0 && (
+                    <>
+                      <span className="flex items-center gap-1 text-[11px] sm:text-xs text-faint">
+                        <Check className="h-3.5 w-3.5 text-accent" /> Draft saved
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleDiscard}
+                        className="text-[11px] sm:text-xs text-faint transition-colors hover:text-danger hover:underline ml-1"
+                      >
+                        Discard
+                      </button>
+                    </>
+                  )}
+                </div>
                 <button
                   onClick={save}
                   disabled={!body.trim()}
@@ -387,6 +460,7 @@ export default function JournalPage() {
                 const isToday = d.iso === today;
                 const dayLogs = entriesByDate.get(d.iso) ?? [];
                 const hasLogs = dayLogs.length > 0;
+                const hasDraft = hasDraftForDay(d.iso);
 
                 return (
                   <button
@@ -424,6 +498,11 @@ export default function JournalPage() {
                             </span>
                           );
                         })
+                      ) : hasDraft ? (
+                        <span
+                          title="Unsaved draft"
+                          className="h-1.5 w-1.5 rounded-full bg-amber-500 ring-1 ring-amber-500/50"
+                        />
                       ) : isToday ? (
                         <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
                       ) : null}
